@@ -248,7 +248,7 @@ export class ContactController {
     @TargetUser() target: Contact,
     @Body() data: UpdateContributionData
   ): Promise<ContributionInfo> {
-    if (!(await PaymentService.canChangeContribution(target, true))) {
+    if (!(await PaymentService.canChangeContribution(target, true, data))) {
       throw new CantUpdateContribution();
     }
 
@@ -361,7 +361,7 @@ export class ContactController {
     target: Contact,
     data: StartContributionData
   ) {
-    if (!(await PaymentService.canChangeContribution(target, false))) {
+    if (!(await PaymentService.canChangeContribution(target, false, data))) {
       throw new CantUpdateContribution();
     }
 
@@ -387,15 +387,21 @@ export class ContactController {
     target: Contact,
     data: CompleteJoinFlowData
   ): Promise<JoinFlow> {
-    if (!(await PaymentService.canChangeContribution(target, false))) {
-      throw new CantUpdateContribution();
-    }
-
     const joinFlow = await PaymentFlowService.getJoinFlowByPaymentId(
       data.paymentFlowId
     );
     if (!joinFlow) {
       throw new NotFoundError();
+    }
+
+    if (
+      !(await PaymentService.canChangeContribution(
+        target,
+        false,
+        joinFlow.joinForm
+      ))
+    ) {
+      throw new CantUpdateContribution();
     }
 
     const completedFlow = await PaymentFlowService.completeJoinFlow(joinFlow);
