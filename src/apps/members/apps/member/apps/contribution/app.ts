@@ -31,7 +31,7 @@ app.get(
         member: contact,
         bankAccount: (await PaymentService.getContributionInfo(contact))
           .paymentSource,
-        canChange: await PaymentService.canChangeContribution(contact, true),
+        canChange: true, // TODO: remove
         monthsLeft: calcMonthsLeft(contact),
         payments,
         total
