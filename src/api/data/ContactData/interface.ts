@@ -65,7 +65,12 @@ export interface GetContactRoleData extends UpdateContactRoleData {
   role: RoleType;
 }
 
-export class ContactRoleParams extends UUIDParam {
+// export class ContactRoleParams extends UUIDParam {
+export class ContactRoleParams {
+  // TODO: fix invalid UUIDs in Cable version
+  @IsString()
+  id!: string;
+
   @IsIn(RoleTypes)
   roleType!: RoleType;
 }
