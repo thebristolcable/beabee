@@ -21,7 +21,7 @@ import { generateContactCode } from "@core/utils/contact";
 const log = mainLogger.child({ app: "gift-service" });
 
 export default class GiftService {
-  private static readonly giftMonthlyAmount = 3;
+  private static readonly giftMonthlyAmount = 5;
 
   static async createGiftFlow(giftForm: GiftForm): Promise<string> {
     log.info("Create gift flow", { giftForm });
@@ -150,12 +150,12 @@ export default class GiftService {
 
   static async updateGiftFlowAddress(
     giftFlow: GiftFlow,
-    giftAddress: Address,
+    giftAddress: Address | null,
     deliveryAddress: Address
   ): Promise<void> {
     log.info("Update gift flow address " + giftFlow.id);
 
-    if (!giftFlow.processed && !giftFlow.giftForm.giftAddress) {
+    if (!giftFlow.processed) {
       await getRepository(GiftFlow).update(giftFlow.id, {
         giftForm: {
           giftAddress,

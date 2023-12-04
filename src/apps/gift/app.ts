@@ -36,19 +36,20 @@ interface AddressSchema {
   postcode: string;
 }
 
-/*type UpdateGiftAddressSchema =
+interface GiftAddressSchema extends AddressSchema {
+  size: "XS" | "S" | "M" | "L" | "XL" | "XXL";
+}
+
+type UpdateGiftAddressSchema =
   | {
       sameAddress: true;
-      giftAddress: AddressSchema;
+      giftAddress: GiftAddressSchema;
     }
   | {
       sameAddress: false;
-      giftAddress: AddressSchema;
+      giftAddress: GiftAddressSchema | undefined;
       deliveryAddress: AddressSchema;
-    };*/
-type UpdateGiftAddressSchema = {
-  deliveryAddress: AddressSchema;
-};
+    };
 
 function schemaToGiftForm(data: CreateGiftSchema): GiftForm {
   const giftForm = new GiftForm();
@@ -68,15 +69,17 @@ function schemaToAddress(data: AddressSchema): Address {
 }
 
 function schemaToAddresses(data: UpdateGiftAddressSchema): {
-  giftAddress: Address;
+  giftAddress: Address | null;
   deliveryAddress: Address;
 } {
-  /*const giftAddress = schemaToAddress(data.giftAddress);
+  const giftAddress = data.giftAddress
+    ? schemaToAddress(data.giftAddress)
+    : null;
   const deliveryAddress = data.sameAddress
     ? schemaToAddress(data.giftAddress)
-    : schemaToAddress(data.deliveryAddress);*/
-  const giftAddress = schemaToAddress(data.deliveryAddress);
-  const deliveryAddress = schemaToAddress(data.deliveryAddress);
+    : schemaToAddress(data.deliveryAddress);
+
+  console.log(data, giftAddress, deliveryAddress);
   return { giftAddress, deliveryAddress };
 }
 

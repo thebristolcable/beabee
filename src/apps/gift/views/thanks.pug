@@ -10,7 +10,7 @@ block body
 		.row
 			.col-md-8.col-md-offset-2.col-lg-8.col-lg-offset-2
 
-				h2= processed || giftAddress ? 'That\'s it!' : 'One more thing!'
+				h2= processed || deliveryAddress ? 'That\'s it!' : 'One more thing!'
 
 				p.
 					Thank you for helping to sustain independent local journalism, we'll
@@ -20,45 +20,46 @@ block body
 					.alert.alert-success.
 						#{firstname}'s gift has now started
 
+				else if deliveryAddress
+					p.
+						If you have any questions please get in touch at #[+emailSupport].
 				else
+					form( method="post" ).form-horizontal.js-reveal
+						+csrf
 
-					if giftAddress
-						p.
-							If you have any questions please get in touch at #[+emailSupport].
-					else
-						//-
-							h4 Where shall we send the mug?
-							form( method="post" ).form-horizontal
+						if months == 12
+							h4 Where shall we send their t-shirt?
 
-								+input( 'text', 'Address line 1', 'giftAddress[line1]', { required: true, left: 4, right: 6 } )
-								+input( 'text', 'Address line 2', 'giftAddress[line2]', { left: 4, right: 6 } )
-								+input( 'text', 'City/town', 'giftAddress[city]', { required: true, left: 4, right: 6 } )
-								+input( 'text', 'Postcode', 'giftAddress[postcode]', { required: true, left: 4, right: 6 } )
+							+input( 'text', 'Address line 1', 'giftAddress[line1]', { required: true, left: 4, right: 6 } )
+							+input( 'text', 'Address line 2', 'giftAddress[line2]', { left: 4, right: 6 } )
+							+input( 'text', 'City/town', 'giftAddress[city]', { required: true, left: 4, right: 6 } )
+							+input( 'text', 'Postcode', 'giftAddress[postcode]', { required: true, left: 4, right: 6 } )
+							+input( 'radio', 'T-shirt size', 'giftAddress[size]', {
+								required: true, left: 4, right: 6, inline: true,
+								options: {'XS': 'XS', 'S': 'S', 'M': 'M', 'L': 'L', 'XL': 'XL', 'XXL': 'XXL'}
+							})
 
-								.js-reveal
-									.form-group
-										.col-md-offset-4.col-md-8
-											.checkbox
-												label(data-toggle="collapse" data-target="#deliveryCopies")
-													input(type='checkbox' name='sameAddress' value='true' checked).js-reveal-types
-													| Also send copies of the Cable to this address
+							.form-group
+								.col-md-offset-4.col-md-8
+									.checkbox
+										label(data-toggle="collapse" data-target="#deliveryCopies")
+											input(type='checkbox' name='sameAddress' value='true' checked).js-reveal-types
+											| Also send copies of the Cable to this address
 
-									.hidden.js-reveal-type(data-type='sameAddress' data-inverse)
-						form( method="post" ).form-horizontal
-							+csrf
+						include /views/partials/flash
 
-							include /views/partials/flash
+						.js-reveal-type(data-type='sameAddress' data-inverse)
 
 							h4 Where shall we send copies?
 							p.
 								If you don't know where #{firstname} wants their copies sent we will ask them when
 								they activate their account.
 
-							+input( 'text', 'Address line 1', 'deliveryAddress[line1]', { required: true, left: 4, right: 6 } )
+							+input( 'text', 'Address line 1', 'deliveryAddress[line1]', { left: 4, right: 6 } )
 							+input( 'text', 'Address line 2', 'deliveryAddress[line2]', { left: 4, right: 6 } )
-							+input( 'text', 'City/town', 'deliveryAddress[city]', { required: true, left: 4, right: 6 } )
-							+input( 'text', 'Postcode', 'deliveryAddress[postcode]', { required: true, left: 4, right: 6 } )
+							+input( 'text', 'City/town', 'deliveryAddress[city]', { left: 4, right: 6 } )
+							+input( 'text', 'Postcode', 'deliveryAddress[postcode]', { left: 4, right: 6 } )
 
-							.form-group
-								.col-md-offset-4.col-md-6
-									button.btn.btn-success Confirm
+						.form-group
+							.col-md-offset-4.col-md-6
+								button.btn.btn-success Confirm
