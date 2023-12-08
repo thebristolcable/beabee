@@ -30,36 +30,44 @@ block body
 						if months == 12
 							h4 Where shall we send their t-shirt?
 
-							+input( 'text', 'Address line 1', 'giftAddress[line1]', { required: true, left: 4, right: 6 } )
-							+input( 'text', 'Address line 2', 'giftAddress[line2]', { left: 4, right: 6 } )
-							+input( 'text', 'City/town', 'giftAddress[city]', { required: true, left: 4, right: 6 } )
-							+input( 'text', 'Postcode', 'giftAddress[postcode]', { required: true, left: 4, right: 6 } )
-							+input( 'radio', 'T-shirt size', 'giftAddress[size]', {
-								required: true, left: 4, right: 6, inline: true,
-								options: {'XS': 'XS', 'S': 'S', 'M': 'M', 'L': 'L', 'XL': 'XL', 'XXL': 'XXL'}
-							})
+							+input( 'text', 'Address line 1', 'giftAddress[line1]', { required: true, left: 3, right: 6 } )
+							+input( 'text', 'Address line 2', 'giftAddress[line2]', { left: 3, right: 6 } )
+							+input( 'text', 'City/town', 'giftAddress[city]', { required: true, left: 3, right: 6 } )
+							+input( 'text', 'Postcode', 'giftAddress[postcode]', { required: true, left: 3, right: 6 } )
 
 							.form-group
-								.col-md-offset-4.col-md-8
+								.col-md-offset-3.col-md-8
 									.checkbox
 										label(data-toggle="collapse" data-target="#deliveryCopies")
-											input(type='checkbox' name='sameAddress' value='true' checked).js-reveal-types
-											| Also send copies of the Cable to this address
+											input(type='checkbox' name='sameAddress' value='true').js-reveal-types
+											| Also send their print copies of the Cable to this address
+							+input( 'radio', 'T-shirt size', 'giftAddress[size]', {
+								required: true, left: 3, right: 6, inline: true,
+								options: {'XS': 'XS', 'S': 'S', 'M': 'M', 'L': 'L', 'XL': 'XL', 'XXL': 'XXL'}
+							})
+							+input( 'radio', 'T-shirt colour', 'giftAddress[color]', {
+								required: true, left: 3, right: 6, inline: true,
+								options: {'White': 'White', 'Black': 'Black'}
+							})
+
+							.col-md-offset-3.col-md-8(style='margin-bottom:3rem')
+								a(href='/static/imgs/gift-tshirt-white.jpg' target='_blank'): img(src='/static/imgs/gift-tshirt-white.jpg' style='width:50%')
+								a(href='/static/imgs/gift-tshirt-black.jpg' target='_blank'): img(src='/static/imgs/gift-tshirt-black.jpg' style='width:50%')
 
 						include /views/partials/flash
 
 						.js-reveal-type(data-type='sameAddress' data-inverse)
 
-							h4 Where shall we send copies?
+							h4 Where shall we send their print copies?
 							p.
 								If you don't know where #{firstname} wants their copies sent we will ask them when
 								they activate their account.
 
-							+input( 'text', 'Address line 1', 'deliveryAddress[line1]', { left: 4, right: 6 } )
-							+input( 'text', 'Address line 2', 'deliveryAddress[line2]', { left: 4, right: 6 } )
-							+input( 'text', 'City/town', 'deliveryAddress[city]', { left: 4, right: 6 } )
-							+input( 'text', 'Postcode', 'deliveryAddress[postcode]', { left: 4, right: 6 } )
+							+input( 'text', 'Address line 1', 'deliveryAddress[line1]', { left: 3, right: 6 } )
+							+input( 'text', 'Address line 2', 'deliveryAddress[line2]', { left: 3, right: 6 } )
+							+input( 'text', 'City/town', 'deliveryAddress[city]', { left: 3, right: 6 } )
+							+input( 'text', 'Postcode', 'deliveryAddress[postcode]', { left: 3, right: 6 } )
 
 						.form-group
-							.col-md-offset-4.col-md-6
+							.col-md-offset-3.col-md-6
 								button.btn.btn-success Confirm

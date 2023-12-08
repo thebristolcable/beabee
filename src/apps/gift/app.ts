@@ -38,6 +38,7 @@ interface AddressSchema {
 
 interface GiftAddressSchema extends AddressSchema {
   size: "XS" | "S" | "M" | "L" | "XL" | "XXL";
+  color: "black" | "white";
 }
 
 type UpdateGiftAddressSchema =

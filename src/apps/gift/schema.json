@@ -64,6 +64,9 @@
               "type": "string",
               "format": "postcode"
             },
+            "color": {
+              "type": "string"
+            },
             "size": {
               "type": "string"
             }
