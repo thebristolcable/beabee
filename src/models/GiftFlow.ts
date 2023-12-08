@@ -9,6 +9,10 @@ import {
 import type Address from "./Address";
 import type Contact from "./Contact";
 
+interface GiftAddress extends Address {
+  size: "XS" | "S" | "M" | "L" | "XL" | "XXL";
+}
+
 export class GiftForm {
   @Column()
   firstname!: string;
@@ -35,7 +39,7 @@ export class GiftForm {
   months!: number;
 
   @Column({ type: "jsonb", nullable: true })
-  giftAddress!: Address | null;
+  giftAddress!: GiftAddress | null;
 
   @Column({ type: "jsonb", nullable: true })
   deliveryAddress!: Address | null;

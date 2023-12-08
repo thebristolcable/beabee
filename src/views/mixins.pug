@@ -12,7 +12,7 @@ mixin input( type, label, name, opts )
 	.form-group
 		label( for=opts.id, class=( opts.left ? 'col-md-' + opts.left : 'col-md-2' ) ).control-label #{ label }
 		div( class=( opts.right ? 'col-md-' + opts.right : 'col-md-3' ) )
-			div( class=( opts.before || opts.after ? 'input-group' : null ) )
+			div( class=( opts.before || opts.after ? 'input-group' : null ) style=(opts.inline ? 'column-gap: 1.5rem; display: flex; flex-wrap: wrap': null) )
 				if opts.before
 					.input-group-addon=opts.before
 				case type

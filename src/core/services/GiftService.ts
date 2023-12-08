@@ -21,7 +21,7 @@ import { generateContactCode } from "@core/utils/contact";
 const log = mainLogger.child({ app: "gift-service" });
 
 export default class GiftService {
-  private static readonly giftMonthlyAmount = 3;
+  private static readonly giftMonthlyAmount = 5;
 
   static async createGiftFlow(giftForm: GiftForm): Promise<string> {
     log.info("Create gift flow", { giftForm });
@@ -66,20 +66,20 @@ export default class GiftService {
       const { fromName, fromEmail, firstname, startDate } = giftFlow.giftForm;
       const now = moment.utc();
 
-      const giftCard = GiftService.createGiftCard(giftFlow.setupCode);
-      const attachments = [
-        {
-          type: "application/pdf",
-          name: "Gift card.pdf",
-          content: (giftCard as any).toString("base64")
-        }
-      ];
+      // const giftCard = GiftService.createGiftCard(giftFlow.setupCode);
+      // const attachments = [
+      //   {
+      //     type: "application/pdf",
+      //     name: "Gift card.pdf",
+      //     content: (giftCard as any).toString("base64")
+      //   }
+      // ];
 
       await EmailService.sendTemplateTo(
         "purchased-gift",
         { email: fromEmail, name: fromName },
-        { fromName, gifteeFirstName: firstname, giftStartDate: startDate },
-        { attachments }
+        { fromName, gifteeFirstName: firstname, giftStartDate: startDate }
+        // { attachments }
       );
 
       // Immediately process gifts for today
@@ -150,12 +150,12 @@ export default class GiftService {
 
   static async updateGiftFlowAddress(
     giftFlow: GiftFlow,
-    giftAddress: Address,
+    giftAddress: Address | null,
     deliveryAddress: Address
   ): Promise<void> {
     log.info("Update gift flow address " + giftFlow.id);
 
-    if (!giftFlow.processed && !giftFlow.giftForm.giftAddress) {
+    if (!giftFlow.processed) {
       await getRepository(GiftFlow).update(giftFlow.id, {
         giftForm: {
           giftAddress,

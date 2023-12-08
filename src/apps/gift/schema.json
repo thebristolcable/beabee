@@ -38,7 +38,7 @@
         },
         "months": {
           "type": "number",
-          "enum": [12]
+          "enum": [6, 12]
         }
       }
     }
@@ -46,11 +46,10 @@
   "updateGiftAddressSchema": {
     "body": {
       "type": "object",
-      "required": ["deliveryAddress"],
       "properties": {
         "giftAddress": {
           "type": "object",
-          "required": ["line1", "city", "postcode"],
+          "required": ["line1", "city", "postcode", "size"],
           "properties": {
             "line1": {
               "type": "string"
@@ -64,6 +63,12 @@
             "postcode": {
               "type": "string",
               "format": "postcode"
+            },
+            "color": {
+              "type": "string"
+            },
+            "size": {
+              "type": "string"
             }
           }
         },
@@ -72,7 +77,6 @@
         },
         "deliveryAddress": {
           "type": "object",
-          "required": ["line1", "city", "postcode"],
           "properties": {
             "line1": {
               "type": "string"

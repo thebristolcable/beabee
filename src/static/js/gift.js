@@ -48,17 +48,6 @@ function checkDateInput() {
 		});
 	}
 
-	/*
-	// Select gift type then submit
-	$('.js-gift-type').on('click', function () {
-		this.previousSibling.checked = true;
-		if (validateForm()) {
-			purchaseGift();
-		} else {
-			this.previousSibling.checked = false;
-		}
-	});
-
 	// Allow feedback on invalid inputs, but
 	// must use gift type buttons to submit
 	$form.on('submit', function (evt) {
@@ -68,14 +57,12 @@ function checkDateInput() {
 	});
 	// Select gift type then submit
 	$('.js-gift-type').on('click', function () {
-		this.previousSibling.checked = true;
+		console.log(this.value);
+		form.elements.months.value = this.value;
 		if (validateForm()) {
 			purchaseGift();
-		} else {
-			this.previousSibling.checked = false;
 		}
 	});
-	*/
 
 	function reset() {
 		$form.find('button').prop('disabled', false);

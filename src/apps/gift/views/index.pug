@@ -11,21 +11,23 @@ block append js
 
 block body
 	header.join-header#join
-		.join-header__bg
-
 		form(method='POST').join-form.js-gift-form
 			+csrf
 
-			.join-title.text-center
-				h1 A gift for a#[br]better 2023!
+			h1.join-title.text-center Gift The Cable
 
-			h4 With a gift membership your loved one will get:
+			h4 
 
 			ul.join-gift-reasons
-				li Membership of 100% community owned local media
-				li A quarterly print copy of the Cable, delivered to their door
+				li Our award-nominated weekly newsletter with a round up of what's happening in Bristol
+				li 10% discount on tickets to our #[a(href='https://thebristolcable.org/events' target='_blank') events]
+				li A quarterly print edition with our best stories, delivered to their door
+				li Membership of Bristol's community-owned media
+				li A limited edition t-shirt (12 month gift only)
 
-			img(src='/static/imgs/gift-header.png' style='width:100%')
+			div
+				a(href='/static/imgs/gift-tshirt-white.jpg' target='_blank'): img(src='/static/imgs/gift-tshirt-white.jpg' style='width:50%')
+				a(href='/static/imgs/gift-tshirt-black.jpg' target='_blank'): img(src='/static/imgs/gift-tshirt-black.jpg' style='width:50%')
 
 			.js-gift-errors
 				include /views/partials/flash.pug
@@ -49,8 +51,9 @@ block body
 					input(type='email' name='email' placeholder='email@address.com' required).join-field__input
 
 				h4 3. When should their gift start?
+				p This is when we'll send them their welcome email.
 				.join-field.join-field-date
-					input(type='date' name='startDate' required).join-field__input
+					input(type='date' name='startDate' value='2023-12-25' required).join-field__input
 
 				h4 4. Who shall we say the gift is from?
 				.join-field
@@ -61,16 +64,22 @@ block body
 					input(type='email' name='fromEmail' placeholder='email@example.com' required).join-field__input
 
 				h4 6. Add an optional personal message
-				p We'll include this in their card and welcome email.
+				p We'll include this in their welcome email.
 				.join-field.join-field-message
 					textarea(name='message' maxlength='140').join-field__input
 
-				input(type='hidden' name='months' value='12')
-				p: button.btn.btn-success.btn-lg.join-btn.join-gift-btn
-					| Buy gift
-					small for £36
+				input(name='months' type='hidden')
+				.join-gift-options
+						button(value='12').btn.btn-success.btn-lg.join-btn.join-gift-btn.js-gift-type
+							| 12 month membership
+							small for £60
+							small (includes free t-shirt)
+						button(value='6').btn.btn-success.btn-lg.join-btn.join-gift-btn.js-gift-type
+							| 6 month membership
+							small for £30
 
 				p.join-info.join-secure.small
 					svg(xmlns='http://www.w3.org/2000/svg', viewBox='0 0 24 24')
 						path(fill='currentColor', d='M18 10v-4c0-3.313-2.687-6-6-6s-6 2.687-6 6v4h-3v14h18v-14h-3zm-10 0v-4c0-2.206 1.794-4 4-4s4 1.794 4 4v4h-8z')
 					| Your payment will be processed securely with Stripe.
+		img(src='/static/imgs/gift-bg.jpg').join-img
