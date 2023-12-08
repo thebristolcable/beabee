@@ -14,15 +14,15 @@ block body
 		form(method='POST').join-form.js-gift-form
 			+csrf
 
-			h1.join-title.text-center A gift for a#[br]better 2024!
+			h1.join-title.text-center Gift The Cable
 
-			h4 Gift the Cable and one lucky person will get:
+			h4 
 
 			ul.join-gift-reasons
-				li Membership of 100% community owned local media
-				li A quarterly print copy of the Cable, delivered to their door
-				li 10% discount on tickets to our #[a(href='https://thebristolcable.org/events') events]
 				li Our award-nominated weekly newsletter with a round up of what's happening in Bristol
+				li 10% discount on tickets to our #[a(href='https://thebristolcable.org/events' target='_blank') events]
+				li A quarterly print edition with our best stories, delivered to their door
+				li Membership of Bristol's community-owned media
 				li A limited edition t-shirt (12 month gift only)
 
 			div
@@ -51,7 +51,7 @@ block body
 					input(type='email' name='email' placeholder='email@address.com' required).join-field__input
 
 				h4 3. When should their gift start?
-				p This is when we'll send them their welcome email, they can still activate their account beforehand.
+				p This is when we'll send them their welcome email.
 				.join-field.join-field-date
 					input(type='date' name='startDate' value='2023-12-25' required).join-field__input
 

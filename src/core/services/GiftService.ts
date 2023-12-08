@@ -66,20 +66,20 @@ export default class GiftService {
       const { fromName, fromEmail, firstname, startDate } = giftFlow.giftForm;
       const now = moment.utc();
 
-      const giftCard = GiftService.createGiftCard(giftFlow.setupCode);
-      const attachments = [
-        {
-          type: "application/pdf",
-          name: "Gift card.pdf",
-          content: (giftCard as any).toString("base64")
-        }
-      ];
+      // const giftCard = GiftService.createGiftCard(giftFlow.setupCode);
+      // const attachments = [
+      //   {
+      //     type: "application/pdf",
+      //     name: "Gift card.pdf",
+      //     content: (giftCard as any).toString("base64")
+      //   }
+      // ];
 
       await EmailService.sendTemplateTo(
         "purchased-gift",
         { email: fromEmail, name: fromName },
-        { fromName, gifteeFirstName: firstname, giftStartDate: startDate },
-        { attachments }
+        { fromName, gifteeFirstName: firstname, giftStartDate: startDate }
+        // { attachments }
       );
 
       // Immediately process gifts for today
