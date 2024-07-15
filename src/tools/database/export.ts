@@ -1,6 +1,6 @@
 import "module-alias/register";
 
-import * as db from "@core/database";
+import { runApp } from "@core/server";
 
 import * as models from "./anonymisers/models";
 import { anonymiseModel, clearModels } from "./anonymisers";
@@ -16,7 +16,7 @@ const anonymisers = [
   models.giftFlowAnonymiser,
   models.noticesAnonymiser,
   models.optionsAnonymiser,
-  models.paymentDataAnonymiser,
+  models.contactContributionAnonymiser,
   models.paymentsAnonymiser,
   models.pageSettingsAnonymiser,
   models.calloutsAnonymiser,
@@ -29,12 +29,12 @@ const anonymisers = [
   models.projectEngagmentsAnonymiser,
   models.referralsGiftAnonymiser, // Must be before referralsAnonymiser
   models.referralsAnonymiser,
-  models.resetPasswordFlowAnonymiser,
+  models.resetSecurityFlowAnonymiser,
   models.segmentsAnonymiser,
   models.segmentContactsAnonymiser,
   models.segmentOngoingEmailsAnonymiser,
   models.exportItemsAnonymiser // Must be after all exportable items
-] as models.ModelAnonymiser<unknown>[];
+] as models.ModelAnonymiser[];
 
 async function main() {
   const valueMap = new Map<string, unknown>();
@@ -46,11 +46,4 @@ async function main() {
   }
 }
 
-db.connect().then(async () => {
-  try {
-    await main();
-  } catch (err) {
-    console.error(err);
-  }
-  await db.close();
-});
+runApp(main);

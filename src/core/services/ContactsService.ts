@@ -4,21 +4,29 @@ import {
   ContributionPeriod,
   NewsletterStatus
 } from "@beabee/beabee-common";
-import {
-  FindConditions,
-  FindManyOptions,
-  FindOneOptions,
-  getRepository
-} from "typeorm";
+import { FindManyOptions, FindOneOptions, FindOptionsWhere, In } from "typeorm";
 
+import {
+  createQueryBuilder,
+  getRepository,
+  runTransaction
+} from "@core/database";
 import { log as mainLogger } from "@core/logging";
-import { cleanEmailAddress, isDuplicateIndex, PaymentForm } from "@core/utils";
+import { cleanEmailAddress, isDuplicateIndex } from "@core/utils";
+import { generatePassword, isValidPassword } from "@core/utils/auth";
 import { generateContactCode } from "@core/utils/contact";
 
+import ApiKeyService from "@core/services/ApiKeyService";
+import CalloutsService from "@core/services/CalloutsService";
+import ContactMfaService from "@core/services/ContactMfaService";
 import EmailService from "@core/services/EmailService";
 import NewsletterService from "@core/services/NewsletterService";
 import OptionsService from "@core/services/OptionsService";
 import PaymentService from "@core/services/PaymentService";
+import ReferralsService from "@core/services/ReferralsService";
+import ResetSecurityFlowService from "@core/services/ResetSecurityFlowService";
+import SegmentService from "@core/services/SegmentService";
+import UploadFlowService from "@core/services/UploadFlowService";
 
 import Contact from "@models/Contact";
 import ContactActivity, {
@@ -27,10 +35,23 @@ import ContactActivity, {
 } from "@models/ContactActivity";
 import ContactProfile from "@models/ContactProfile";
 import ContactRole from "@models/ContactRole";
+import GiftFlow from "@models/GiftFlow";
 import Password from "@models/Password";
+import Project from "@models/Project";
+import ProjectEngagement from "@models/ProjectEngagement";
 
-import DuplicateEmailError from "@api/errors/DuplicateEmailError";
+import BadRequestError from "@api/errors/BadRequestError";
 import CantUpdateContribution from "@api/errors/CantUpdateContribution";
+import DuplicateEmailError from "@api/errors/DuplicateEmailError";
+import NotFoundError from "@api/errors/NotFoundError";
+import UnauthorizedError from "@api/errors/UnauthorizedError";
+
+import { CONTACT_MFA_TYPE } from "@enums/contact-mfa-type";
+import { LOGIN_CODES } from "@enums/login-codes";
+import { RESET_SECURITY_FLOW_TYPE } from "@enums/reset-security-flow-type";
+import { RESET_SECURITY_FLOW_ERROR_CODE } from "@enums/reset-security-flow-error-code";
+
+import { PaymentForm } from "@type/index";
 
 export type PartialContact = Pick<Contact, "email" | "contributionType"> &
   Partial<Contact>;
@@ -54,25 +75,21 @@ class ContactsService {
     ids: string[],
     options?: FindOneOptions<Contact>
   ): Promise<Contact[]> {
-    return await getRepository(Contact).findByIds(ids, options);
+    return await getRepository(Contact).findBy({ id: In(ids), ...options });
   }
 
   async findOne(
-    id?: string,
-    options?: FindOneOptions<Contact>
-  ): Promise<Contact | undefined>;
-  async findOne(
-    options?: FindOneOptions<Contact>
-  ): Promise<Contact | undefined>;
-  async findOne(
-    conditions: FindConditions<Contact>,
-    options?: FindOneOptions<Contact>
-  ): Promise<Contact | undefined>;
-  async findOne(
-    arg1?: string | FindConditions<Contact> | FindOneOptions<Contact>,
-    arg2?: FindOneOptions<Contact>
+    options: FindOneOptions<Contact>
   ): Promise<Contact | undefined> {
-    return await getRepository(Contact).findOne(arg1 as any, arg2);
+    // TODO: check undefined
+    return (await getRepository(Contact).findOne(options)) || undefined;
+  }
+
+  async findOneBy(
+    where: FindOptionsWhere<Contact>
+  ): Promise<Contact | undefined> {
+    // TODO: check undefined
+    return (await getRepository(Contact).findOneBy(where)) || undefined;
   }
 
   async createContact(
@@ -184,7 +201,6 @@ class ContactsService {
       role.dateExpires = updates.dateExpires || role.dateExpires;
     } else {
       role = getRepository(ContactRole).create({
-        contact: contact,
         type: roleType,
         dateAdded: updates?.dateAdded || new Date(),
         dateExpires: updates?.dateExpires || null
@@ -264,7 +280,7 @@ class ContactsService {
 
     contact.roles = contact.roles.filter((p) => p.type !== roleType);
     const ret = await getRepository(ContactRole).delete({
-      contact: contact,
+      contactId: contact.id,
       type: roleType
     });
 
@@ -297,8 +313,8 @@ class ContactsService {
     let isFirstSync = false;
 
     if (shouldSync) {
-      contact.profile = await getRepository(ContactProfile).findOneOrFail({
-        contact
+      contact.profile = await getRepository(ContactProfile).findOneByOrFail({
+        contactId: contact.id
       });
       // If this is the first time the contact is being synced to the newsletter
       // then we need to set the active member tag
@@ -327,6 +343,7 @@ class ContactsService {
     contact: Contact,
     paymentForm: PaymentForm
   ): Promise<void> {
+    log.info("Update contribution for " + contact.id, { paymentForm });
     // At the moment the only possibility is to go from whatever contribution
     // type the user was before to an automatic contribution
     const wasManual = contact.contributionType === ContributionType.Manual;
@@ -339,6 +356,7 @@ class ContactsService {
       contact.contributionPeriod === ContributionPeriod.Annually &&
       paymentForm.period !== ContributionPeriod.Annually
     ) {
+      log.info("Can't update contribution for " + contact.id);
       throw new CantUpdateContribution();
     }
 
@@ -347,7 +365,10 @@ class ContactsService {
       paymentForm
     );
 
-    log.info("Updated contribution", { startNow, expiryDate });
+    log.info("Updated contribution for " + contact.id, {
+      startNow,
+      expiryDate
+    });
 
     await getRepository(ContactActivity).save({
       type: ActivityType.ChangeContribution,
@@ -381,6 +402,7 @@ class ContactsService {
     contact: Contact,
     email: "cancelled-contribution" | "cancelled-contribution-no-survey"
   ): Promise<void> {
+    log.info("Cancel contribution for " + contact.id);
     await PaymentService.cancelContribution(contact);
 
     await getRepository(ContactActivity).save({
@@ -394,13 +416,57 @@ class ContactsService {
     });
   }
 
+  /**
+   * Permanently delete a contact and all associated data.
+   *
+   * @param contact The contact
+   */
   async permanentlyDeleteContact(contact: Contact): Promise<void> {
-    await getRepository(Contact).delete(contact.id);
-    await NewsletterService.deleteContacts([contact]);
+    // Delete external data first, this is more likely to fail so we'd exit the process early
+    await NewsletterService.permanentlyDeleteContacts([contact]);
+    await PaymentService.permanentlyDeleteContact(contact);
+
+    // Delete internal data after the external services are done, this should really never fail
+    await ResetSecurityFlowService.deleteAll(contact);
+    await ApiKeyService.permanentlyDeleteContact(contact);
+    await ReferralsService.permanentlyDeleteContact(contact);
+    await UploadFlowService.permanentlyDeleteContact(contact);
+    await SegmentService.permanentlyDeleteContact(contact);
+    await CalloutsService.permanentlyDeleteContact(contact);
+    await ContactMfaService.permanentlyDeleteContact(contact);
+
+    log.info("Permanently delete contact " + contact.id);
+    await runTransaction(async (em) => {
+      // Projects are only in the legacy app, so really no one should have any, but we'll delete them just in case
+      // TODO: Remove this when we've reworked projects
+      await em
+        .getRepository(ProjectEngagement)
+        .delete({ byContactId: contact.id });
+      await em
+        .getRepository(ProjectEngagement)
+        .delete({ toContactId: contact.id });
+      await em
+        .getRepository(Project)
+        .update({ ownerId: contact.id }, { ownerId: null });
+
+      // Gifts are only in the legacy app, so really no one should have any, but we'll delete them just in case
+      // TODO: Remove this when we've reworked gifts
+      await em
+        .getRepository(GiftFlow)
+        .update({ gifteeId: contact.id }, { gifteeId: null });
+
+      await em.getRepository(ContactRole).delete({ contactId: contact.id });
+      await em.getRepository(ContactProfile).delete({ contactId: contact.id });
+      await em.getRepository(Contact).delete(contact.id);
+    });
   }
 
-  // This is a temporary method until we rework manual contribution updates
-  // TODO: Remove this!
+  /**
+   * TODO: Remove this!
+   * @deprecated This is a temporary method until we rework manual contribution updates
+   * @param contact
+   * @param data
+   */
   async forceUpdateContactContribution(
     contact: Contact,
     data: ForceUpdateContribution
@@ -421,12 +487,202 @@ class ContactsService {
       contributionMonthlyAmount: monthlyAmount
     });
 
-    await PaymentService.updateDataBy(contact, "source", data.source || null);
-    await PaymentService.updateDataBy(
+    await PaymentService.updateData(contact, {
+      mandateId: data.source || null,
+      customerId: data.reference || null
+    });
+  }
+
+  /**
+   * Increment the number of password tries for a contact.
+   * @param contact The contact to increment the password tries for
+   * @returns The new number of tries
+   */
+  async incrementPasswordTries(contact: Contact) {
+    contact.password.tries ||= 0;
+    contact.password.tries++;
+    await this.updateContact(contact, {
+      password: { ...contact.password }
+    });
+    return contact.password.tries;
+  }
+
+  async resetPasswordTries(contact: Contact) {
+    contact.password.tries = 0;
+    await this.updateContact(contact, {
+      password: { ...contact.password }
+    });
+  }
+
+  /**
+   * Starts the reset password flow.
+   * This is mostly used after the user has clicked on the forgot password the link on the login page.
+   * @param email The email of the contact
+   * @param resetUrl The reset url
+   */
+  public async resetPasswordBegin(
+    email: string,
+    resetUrl: string
+  ): Promise<void> {
+    const contact = await this.findOneBy({ email });
+
+    if (!contact) {
+      return;
+    }
+
+    const rpFlow = await ResetSecurityFlowService.create(
       contact,
-      "reference",
-      data.reference || null
+      RESET_SECURITY_FLOW_TYPE.PASSWORD
     );
+
+    await EmailService.sendTemplateToContact("reset-password", contact, {
+      rpLink: resetUrl + "/" + rpFlow.id
+    });
+  }
+
+  /**
+   * Completes the reset password flow.
+   * This is mostly used after the user has clicked the link in the email.
+   * @param id The reset password flow id
+   * @param data
+   * @returns The contact associated with the reset password flow
+   *
+   * @throws {NotFoundError} If the reset password flow doesn't exist
+   * @throws {BadRequestError} If the reset password flow type is not PASSWORD
+   * @throws {BadRequestError} If MFA is enabled but the MFA type is not TOTP
+   * @throws {BadRequestError} If the MFA token is not provided
+   * @throws {UnauthorizedError} If the MFA token is invalid
+   */
+  public async resetPasswordComplete(
+    id: string,
+    data: { password: string; token?: string }
+  ) {
+    const rpFlow = await ResetSecurityFlowService.get(id);
+
+    if (!rpFlow) {
+      throw new NotFoundError({
+        code: RESET_SECURITY_FLOW_ERROR_CODE.NOT_FOUND
+      });
+    }
+
+    if (rpFlow.type !== RESET_SECURITY_FLOW_TYPE.PASSWORD) {
+      throw new BadRequestError({
+        code: RESET_SECURITY_FLOW_ERROR_CODE.WRONG_TYPE
+      });
+    }
+
+    // Check if contact has MFA enabled, if so validate MFA
+    const mfa = await ContactMfaService.get(rpFlow.contact);
+    if (mfa) {
+      // In the future, we might want to add more types of reset flows
+      if (mfa.type !== CONTACT_MFA_TYPE.TOTP) {
+        throw new BadRequestError({
+          code: RESET_SECURITY_FLOW_ERROR_CODE.WRONG_MFA_TYPE
+        });
+      }
+
+      if (!data.token) {
+        throw new BadRequestError({
+          code: RESET_SECURITY_FLOW_ERROR_CODE.MFA_TOKEN_REQUIRED
+        });
+      }
+
+      const { isValid } = await ContactMfaService.checkToken(
+        rpFlow.contact,
+        data.token,
+        1
+      );
+
+      if (!isValid) {
+        throw new UnauthorizedError({ code: LOGIN_CODES.INVALID_TOKEN });
+      }
+    }
+
+    await this.updateContact(rpFlow.contact, {
+      password: await generatePassword(data.password)
+    });
+
+    // Stop all other reset flows if they exist
+    await ResetSecurityFlowService.deleteAll(rpFlow.contact);
+
+    return rpFlow.contact;
+  }
+
+  /**
+   * Starts the reset device flow.
+   * This is mostly used after the user has clicked on the lost device the link on the login page.
+   * @param email The email of the contact
+   * @param type The reset device flow type
+   * @param resetUrl The reset url
+   */
+  public async resetDeviceBegin(
+    email: string,
+    type: RESET_SECURITY_FLOW_TYPE,
+    resetUrl: string
+  ): Promise<void> {
+    const contact = await this.findOneBy({ email });
+
+    // We don't want to leak if the email exists or not
+    if (!contact) {
+      return;
+    }
+
+    // Check if contact has MFA enabled
+    const mfa = await ContactMfaService.get(contact);
+    if (!mfa) {
+      return;
+    }
+
+    const rdFlow = await ResetSecurityFlowService.create(contact, type);
+
+    await EmailService.sendTemplateToContact("reset-device", contact, {
+      rpLink: resetUrl + "/" + rdFlow.id
+    });
+  }
+
+  /**
+   * Completes the reset device flow.
+   * This is mostly used after the user has clicked the link in the email.
+   * @param id The reset device flow id
+   * @param password The password of the contact
+   * @returns The contact associated with the reset device flow
+   *
+   * @throws {NotFoundError} If the reset device flow doesn't exist
+   * @throws {BadRequestError} If the reset device flow type is not TOTP
+   * @throws {UnauthorizedError} If the password is invalid
+   */
+  public async resetDeviceComplete(id: string, password: string) {
+    const rdFlow = await ResetSecurityFlowService.get(id);
+
+    if (!rdFlow) {
+      throw new NotFoundError({
+        code: RESET_SECURITY_FLOW_ERROR_CODE.NOT_FOUND
+      });
+    }
+
+    if (rdFlow.type !== RESET_SECURITY_FLOW_TYPE.TOTP) {
+      throw new BadRequestError({
+        code: RESET_SECURITY_FLOW_ERROR_CODE.WRONG_TYPE
+      });
+    }
+
+    // Validate password
+    const code = await isValidPassword(rdFlow.contact.password, password);
+    if (code !== LOGIN_CODES.LOGGED_IN) {
+      await this.incrementPasswordTries(rdFlow.contact);
+      throw new UnauthorizedError({ code });
+    }
+
+    // Reset password tries because the password was correct
+    await this.resetPasswordTries(rdFlow.contact);
+
+    // Disable MFA, we can use the unsecure method because we already validated the password
+    await ContactMfaService.deleteUnsecure(rdFlow.contact);
+
+    // Stop all other reset flows if they exist
+    await ResetSecurityFlowService.deleteAll(rdFlow.contact);
+
+    return rdFlow.contact;
   }
 }
 

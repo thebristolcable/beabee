@@ -15,22 +15,16 @@ import {
 import { getActualAmount } from "@core/utils";
 import config from "@config";
 
+import type ContactContribution from "./ContactContribution";
 import type ContactRole from "./ContactRole";
 import type ContactProfile from "./ContactProfile";
 import Password from "./Password";
-import type PaymentData from "./PaymentData";
+
+import { ContributionInfo } from "@type/contribution-info";
 
 interface LoginOverride {
   code: string;
   expires: Date;
-}
-
-class OneTimePassword {
-  @Column({ type: String, nullable: true })
-  key!: string | null;
-
-  @Column({ default: false })
-  activated!: boolean;
 }
 
 @Entity()
@@ -49,9 +43,6 @@ export default class Contact {
 
   @Column(() => Password)
   password!: Password;
-
-  @Column(() => OneTimePassword)
-  otp!: OneTimePassword;
 
   @CreateDateColumn()
   joined!: Date;
@@ -83,11 +74,17 @@ export default class Contact {
   @OneToOne("ContactProfile", "contact")
   profile!: ContactProfile;
 
-  @OneToOne("PaymentData", "contact")
-  paymentData!: PaymentData;
+  @OneToOne("ContactContribution", "contact")
+  contribution!: ContactContribution;
+
+  contributionInfo?: ContributionInfo;
 
   get activeRoles(): RoleType[] {
-    return this.roles.filter((p) => p.isActive).map((p) => p.type);
+    const ret = this.roles.filter((p) => p.isActive).map((p) => p.type);
+    if (ret.includes("superadmin")) {
+      ret.push("admin");
+    }
+    return ret;
   }
 
   hasRole(roleType: RoleType): boolean {

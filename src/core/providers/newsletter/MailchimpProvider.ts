@@ -263,7 +263,7 @@ export default class MailchimpProvider implements NewsletterProvider {
     await this.dispatchOperations(operations);
   }
 
-  async deleteContacts(emails: string[]): Promise<void> {
+  async permanentlyDeleteContacts(emails: string[]): Promise<void> {
     const operations: Operation[] = emails.map((email) => ({
       path: this.emailUrl(email) + "/actions/permanently-delete",
       method: "POST",
@@ -298,9 +298,7 @@ export default class MailchimpProvider implements NewsletterProvider {
     } else {
       await new Promise((resolve) => setTimeout(resolve, 5000));
       return await this.waitForBatch(
-        (
-          await this.instance.get("/batches/" + batch.id)
-        ).data
+        (await this.instance.get("/batches/" + batch.id)).data
       );
     }
   }

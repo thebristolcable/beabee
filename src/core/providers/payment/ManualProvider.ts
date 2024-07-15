@@ -1,12 +1,14 @@
-import { ContributionInfo, PaymentForm } from "@core/utils";
 import Contact from "@models/Contact";
-import { ManualPaymentData } from "@models/PaymentData";
-import { PaymentProvider, UpdateContributionResult } from ".";
-import { CompletedPaymentFlow } from "../payment-flow";
+import { PaymentProvider } from ".";
 
-export default class ManualProvider extends PaymentProvider<
-  ManualPaymentData | {}
-> {
+import {
+  CompletedPaymentFlow,
+  ContributionInfo,
+  PaymentForm,
+  UpdateContributionResult
+} from "@type/index";
+
+export default class ManualProvider extends PaymentProvider {
   async canChangeContribution(useExistingMandate: boolean): Promise<boolean> {
     return !useExistingMandate;
   }
@@ -14,7 +16,12 @@ export default class ManualProvider extends PaymentProvider<
     return {
       paymentSource: {
         method: null,
-        ...this.data
+        ...(this.data.customerId && {
+          reference: this.data.customerId
+        }),
+        ...(this.data.mandateId && {
+          source: this.data.mandateId
+        })
       }
     };
   }
@@ -32,7 +39,5 @@ export default class ManualProvider extends PaymentProvider<
   ): Promise<void> {
     throw new Error("Method not implemented.");
   }
-  async permanentlyDeleteContact(): Promise<void> {
-    throw new Error("Method not implemented.");
-  }
+  async permanentlyDeleteContact(): Promise<void> {}
 }

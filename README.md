@@ -1,21 +1,22 @@
-# beabee
+# 🐝 beabee
 
-This repository hosts beabee's API and legacy app. [Go here](https://beabee.io/en/home/) to find out more about beabee.
+Welcome to the official GitHub repository for beabee, where you'll find both the backend API and the legacy frontend application for beabee. Discover more about beabee by visiting our website at [beabee.io](https://beabee.io/en/home/).
 
-If you are interested/have any questions please contact
-will.franklin@beabee.io, I'd love to hear from you!
+beabee was initially developed for the [South London Makerspace](http://southlondonmakerspace.org) and later adapted for use by [The Bristol Cable](https://thebristolcable.org).
 
-This system was originally created for
-[South London Makerspace](http://southlondonmakerspace.org)
-and repurposed by [The Bristol Cable](https://thebristolcable.org).
-
-![Deploy](https://github.com/beabee-communityrm/beabee/workflows/Deploy/badge.svg)
+![Deploy Status](https://github.com/beabee-communityrm/beabee/workflows/Deploy/badge.svg)
 ![Known Vulnerabilities](https://snyk.io/test/github/beabee-communityrm/beabee/badge.svg?targetFile=package.json)
 
-Browser testing with<br/>
-<a href="https://www.browserstack.com/"><img src="https://user-images.githubusercontent.com/2084823/46341120-52388b00-c62f-11e8-8f41-270915ccc03b.png" width="150" /></a>
+## Contact Us
 
-## Install
+We're always excited to connect with our community, hear feedback, and answer any questions you might have! If you're interested in learning more about beabee or have any questions, please feel free to reach out:
+
+- **Issues**: [GitHub Issues](https://github.com/beabee-communityrm/beabee/issues)
+- **Email**: [tech@beabee.io](mailto:tech@beabee.io)
+
+Your input is invaluable to us as we continue to grow and improve beabee. Don't hesitate to get in touch!
+
+## 💻 Install
 
 > ⚠️⚠️⚠️ **WARNING** ⚠️⚠️⚠️
 >
@@ -27,7 +28,7 @@ You need:
 
 - Docker >= 19.03.8
 - Docker Compose >= 2
-- Node.js >= 16.13.1
+- Node.js >= 20.10.0
 
 NOTE: Lower non-major versions probably work but haven't been tested
 
@@ -39,37 +40,49 @@ cp .env.example .env
 
 npm install
 npm run build
-docker-compose build
+docker compose build
 
 # Initialise database
-docker-compose up -d db
-docker-compose run --rm app npm run typeorm migration:run
+docker compose up -d db
+docker compose run --rm app npm run typeorm migration:run
 
 # Do the rest
-docker-compose up -d
+docker compose up -d
 ```
-
-Go to: http://localhost:3001
 
 ### To get started
 
 #### Create a new super admin
 
 ```bash
-docker-compose run --rm app node built/tools/new-user
+docker compose run --rm app node built/tools/new-user
 ```
+
+#### Payment methods and email domain
+
+```bash
+docker compose exec app node built/tools/configure
+```
+
+> ⚠️ If you only set up the system locally, it doesn't matter what email domain you specify, but it still has to be valid, e.g. `example.org`.
 
 #### Import some data
 
 Need some test data? Download it here: coming soon
 
 ```bash
-docker-compose run --rm -T app node built/tools/database/import.js < <import file>
+docker compose run --rm -T app node built/tools/database/import.js < <import file>
 ```
 
-## Development
+#### Go to the frontend
 
-Development is containerised, in general you should be able to use the following to get started
+Now [check out the frontend](https://github.com/beabee-communityrm/beabee-frontend) in parallel in a separate directory and start it as described in the README.md.
+
+By default, this should now be accessible via http://localhost:3000 and communicate with the backend API over http://localhost:3001.
+
+## `</>` Development
+
+Development is containerized, in general you should be able to use the following to get started
 
 ```bash
 npm start
@@ -85,30 +98,45 @@ npm run dev:api
 
 If you make changes to `.env` you need to recreate the Docker containers
 
+```bash
+docker compose up -d
 ```
-docker-compose up -d
-```
+
+docker compose up -d
+
+````
 
 If you change the dependencies in `package.json` you must rebuild and recreate the Docker containers
 
-```
-docker-compose build
-docker-compose up -d
-```
+```bash
+docker compose build
+docker compose up -d
+````
 
 #### Generating database migrations
 
-Whenever you make changes to an object that is mapped into the database, you have to use `typeORM` and create a new migration file. Make sure the database container is running and then:
+Whenever you make changes to a database model, you need to create a migration
+file. TypeORM will automatically generate a migration file based on your schema
+changes
 
-```
-docker-compose run app npm run typeorm migration:generate -- -n <MigrationName>
+```bash
+docker compose start db
+docker compose run app npm run typeorm migration:generate src/migrations/MigrationName && npm run fix:prettier
 npm run build
-docker-compose run app npm run typeorm migration:run
+docker compose run app npm run typeorm migration:run
 ```
 
-### Documentation
+If you are still in the development phase, you may want to undo your last database migration as follows:
 
-Documentation is currently very limited, email [will.franklin@beabee.io](mailto:will.franklin@beabee.io) if you have any questions.
+```bash
+docker compose run app npm run typeorm migration:revert
+```
+
+To find out more about this topic, take a look at the [TypeORM Migration Guide](https://typeorm.io/migrations).
+
+### 📰 Documentation
+
+Documentation is currently very limited, please [contact us](#contact-us) and we will try to adapt the documentation accordingly.
 
 The codebase is broadly split into a few different parts
 
@@ -116,46 +144,131 @@ The codebase is broadly split into a few different parts
 
   Shared between all services (API, webhooks and legacy)
 
-  ```
-  ./src/core
-  ./src/models - Data models and database entities
-  ./src/config - Config loader
-  ```
+```
+./src/core
+./src/models - Data models and database entities
+./src/config - Config loader
+```
 
 - **API service**
-  ```
-  ./src/api
-  ```
+
+```
+./src/api
+```
+
 - **Webhook service**
 
-  Handlers for webhooks from beabee's integrations (currently GoCardless, Mailchimp and Stripe)
+Handlers for webhooks from beabee's integrations (currently GoCardless, Mailchimp and Stripe)
 
-  ```
-  ./src/webhook
-  ```
+```
+./src/webhook
+```
 
 - **Legacy app**
 
-  This is slowly being removed, with business logic being moved into the API and frontend into the [new frontend](https://github.com/beabee-communityrm/beabee-frontend/).
+This is slowly being removed, with business logic being moved into the API and frontend into the [new frontend](https://github.com/beabee-communityrm/beabee-frontend/).
 
-  ```
-  ./src/apps
-  ./src/static
-  ./src/views
-  ```
+```
+./src/apps
+./src/static
+./src/views
+```
 
 - **Tools**
 
-  Various tools for administration, including nightly cron jobs
+Various tools for administration, including nightly cron jobs
 
-  ```
-  ./src/tools
-  ```
+```
+./src/tools
+```
 
 - **Database migrations**
 
-  Autogenerated by TypeORM
+Autogenerated by TypeORM
 
-  ```
-  ./src/migrations
-  ```
+```
+./src/migrations
+```
+
+#### 🤲 Common Package
+
+The backend and frontend share some code through the [beabee-common](https://github.com/beabee-communityrm/beabee-common) NPM package.
+
+#### 🖼️ Frontend
+
+You are currently browsing the repository that includes our legacy frontend application. This version is phased out and will be deprecated in due course. The revamped and currently active frontend, built with Vite and Vue, is accessible [here](https://github.com/beabee-communityrm/beabee-frontend).
+
+#### 📡 Webhooks
+
+Webhooks are handled by the `webhook_app` service. This is a separate service from the API to allow for scaling independently.
+
+**`/webhook/ping`** - Used to check if the webhook service is running and available, e.g. http://localhost:3001/webhook/ping
+
+**`/webhook/stripe`** - Stripe webhooks are handled by the `stripe` service, see [Payment Providers](#payment-providers) for more information.
+
+**`/webhook/gocardless`** - GoCardless webhooks are handled by the `gocardless` service, see [Payment Providers](#payment-providers) for more information.
+
+**`/webhook/mailchimp`** - Mailchimp webhooks are handled by the `mailchimp` service, see [MailChimp](#mailchimp) for more information.
+
+### 📧 E-mail
+
+#### Prepare for local development
+
+By default we are using [MailDev](https://github.com/maildev/maildev) for local development. For this to work it must be configured the first time, run the following command if not already done:
+
+```bash
+docker compose exec app node built/tools/configure
+```
+
+If the Docker Compose Stack is started, you can reach MailDev via http://localhost:3025/ by default. If you now receive an e-mail during your tests, you will find it there.
+
+#### 📮 MailChimp
+
+MailChimp is used for sending newsletters and other marketing emails.
+
+To be able to send emails you need to create a MailChimp account and create a new API key in the [MailChimp dashboard](https://mailchimp.com/).
+
+The API key can be found in the MailChimp dashboard under the API keys section.
+
+### 💰 Payment Providers
+
+We are using stripe for membership payments.
+
+#### Prepare for local development
+
+Make sure you have defined the environment variables in the .env file:
+
+```bash
+BEABEE_STRIPE_PUBLICKEY=<public key>
+BEABEE_STRIPE_SECRETKEY=<secret key>
+```
+
+And also that you have configured the payment methods using
+
+```bash
+docker compose exec app node built/tools/configure
+```
+
+You can get the public key and secret key in the [Stripe dashboard](https://dashboard.stripe.com).
+
+To be able to receive webhooks from stripe you need to forward them to your local environment and create a webhook secret using the [Stripe CLI](https://docs.stripe.com/stripe-cli):
+
+```bash
+stripe login
+stripe listen --forward-to localhost:3001/webhook/stripe
+```
+
+Now the stripe CLI prints out the webhook secret, copy it and add it to the .env file while you keep the forwarding process running:
+
+```bash
+BEABEE_STRIPE_WEBHOOKSECRET=<webhook secret>
+```
+
+> ⚠️ To be able to create a payment in the frontend you need to be able to receive confirmation emails, so make sure you have setup [E-Mail](#email).
+
+> ⚠️ Since the environment variable has changed you also need to [rebuild the containers](#rebuilding-containers).
+
+## 🤝 Advertising
+
+Browser testing with<br/>
+<a href="https://www.browserstack.com/"><img src="https://user-images.githubusercontent.com/2084823/46341120-52388b00-c62f-11e8-8f41-270915ccc03b.png" width="150" /></a>

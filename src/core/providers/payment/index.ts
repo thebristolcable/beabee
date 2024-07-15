@@ -1,33 +1,30 @@
 import { PaymentMethod } from "@beabee/beabee-common";
-import { getRepository } from "typeorm";
 
-import { ContributionInfo, PaymentForm } from "@core/utils";
-
-import { CompletedPaymentFlow } from "@core/providers/payment-flow";
+import { getRepository } from "@core/database";
 
 import Contact from "@models/Contact";
-import PaymentData, { PaymentProviderData } from "@models/PaymentData";
+import ContactContribution from "@models/ContactContribution";
 
-export interface UpdateContributionResult {
-  startNow: boolean;
-  expiryDate: Date;
-}
+import {
+  CompletedPaymentFlow,
+  ContributionInfo,
+  PaymentForm,
+  UpdateContributionResult
+} from "@type/index";
 
-export abstract class PaymentProvider<T extends PaymentProviderData> {
-  protected readonly data: T;
+export abstract class PaymentProvider {
+  protected readonly data: ContactContribution;
   protected readonly contact: Contact;
   protected readonly method: PaymentMethod;
 
-  constructor(data: PaymentData) {
-    this.data = data.data as T;
+  constructor(data: ContactContribution) {
+    this.data = data;
     this.contact = data.contact;
     this.method = data.method as PaymentMethod;
   }
 
   protected async updateData() {
-    await getRepository(PaymentData).update(this.contact.id, {
-      data: this.data
-    });
+    await getRepository(ContactContribution).update(this.contact.id, this.data);
   }
 
   abstract canChangeContribution(

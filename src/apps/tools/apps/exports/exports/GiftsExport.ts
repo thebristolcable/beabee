@@ -1,8 +1,11 @@
 import { ContributionType } from "@beabee/beabee-common";
-import { createQueryBuilder, SelectQueryBuilder } from "typeorm";
+import { SelectQueryBuilder } from "typeorm";
 
-import Address from "@models/Address";
+import { createQueryBuilder } from "@core/database";
+
 import GiftFlow from "@models/GiftFlow";
+
+import { Address } from "@type/address";
 
 import BaseExport, { ExportResult } from "./BaseExport";
 

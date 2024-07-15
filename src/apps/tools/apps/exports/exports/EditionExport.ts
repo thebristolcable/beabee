@@ -1,7 +1,8 @@
 import { stringifyAnswer } from "@beabee/beabee-common";
 import _ from "lodash";
-import { createQueryBuilder, getRepository, SelectQueryBuilder } from "typeorm";
+import { SelectQueryBuilder } from "typeorm";
 
+import { createQueryBuilder, getRepository } from "@core/database";
 import { Param } from "@core/utils/params";
 
 import Callout from "@models/Callout";

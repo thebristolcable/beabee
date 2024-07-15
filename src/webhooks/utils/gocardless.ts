@@ -5,8 +5,8 @@ import {
   SubscriptionIntervalUnit
 } from "gocardless-nodejs/types/Types";
 import moment, { DurationInputObject } from "moment";
-import { getRepository } from "typeorm";
 
+import { getRepository } from "@core/database";
 import gocardless from "@core/lib/gocardless";
 import { log as mainLogger } from "@core/logging";
 import { convertStatus } from "@core/utils/payment/gocardless";
@@ -14,7 +14,6 @@ import { convertStatus } from "@core/utils/payment/gocardless";
 import ContactsService from "@core/services/ContactsService";
 import PaymentService from "@core/services/PaymentService";
 
-import { GCPaymentData } from "@models/PaymentData";
 import Payment from "@models/Payment";
 
 import config from "@config";
@@ -105,13 +104,12 @@ async function confirmPayment(payment: Payment): Promise<void> {
     await calcConfirmedPaymentPeriodEnd(payment)
   );
 
-  const data = await PaymentService.getData(payment.contact);
-  const gcData = data.data as GCPaymentData;
-  if (payment.amount === gcData.nextAmount?.chargeable) {
+  const contribution = await PaymentService.getContribution(payment.contact);
+  if (payment.amount === contribution.nextAmount?.chargeable) {
     await ContactsService.updateContact(payment.contact, {
-      contributionMonthlyAmount: gcData.nextAmount?.monthly
+      contributionMonthlyAmount: contribution.nextAmount?.monthly
     });
-    await PaymentService.updateDataBy(payment.contact, "nextAmount", null);
+    await PaymentService.updateData(payment.contact, { nextAmount: null });
   }
   // TODO: resubscribe to newsletter
 }
@@ -155,13 +153,12 @@ async function calcConfirmedPaymentPeriodEnd(payment: Payment): Promise<Date> {
 async function calcFailedPaymentPeriodEnd(
   payment: Payment
 ): Promise<Date | undefined> {
-  const subscription = await gocardless.subscriptions.get(
-    payment.subscriptionId!
-  );
+  const subscriptionId = payment.subscriptionId!; // Definitely exists
+  const subscription = await gocardless.subscriptions.get(subscriptionId);
 
   const latestSuccessfulPayment = await getRepository(Payment).findOne({
     where: {
-      subscriptionId: payment.subscriptionId,
+      subscriptionId,
       status: PaymentStatus.Successful
     },
     order: { chargeDate: "DESC" }
@@ -182,8 +179,8 @@ function getSubscriptionDuration(
     subscription.interval_unit === SubscriptionIntervalUnit.Yearly
       ? "year"
       : subscription.interval_unit === SubscriptionIntervalUnit.Monthly
-      ? "month"
-      : "week";
+        ? "month"
+        : "week";
   return {
     [unit]: Number(subscription.interval)
   };
@@ -203,10 +200,13 @@ export async function cancelSubscription(
 ): Promise<void> {
   log.info("Cancel subscription " + subscriptionId);
 
-  const data = await PaymentService.getDataBy("subscriptionId", subscriptionId);
-  if (data) {
+  const contribution = await PaymentService.getContributionBy(
+    "subscriptionId",
+    subscriptionId
+  );
+  if (contribution) {
     await ContactsService.cancelContactContribution(
-      data.contact,
+      contribution.contact,
       "cancelled-contribution"
     );
   } else {
@@ -215,14 +215,17 @@ export async function cancelSubscription(
 }
 
 export async function cancelMandate(mandateId: string): Promise<void> {
-  const data = await PaymentService.getDataBy("mandateId", mandateId);
-  if (data) {
+  const contribution = await PaymentService.getContributionBy(
+    "mandateId",
+    mandateId
+  );
+  if (contribution) {
     log.info("Cancel mandate " + mandateId, {
-      contactId: data.contact.id,
+      contactId: contribution.contact.id,
       mandateId
     });
 
-    await PaymentService.updateDataBy(data.contact, "mandateId", null);
+    await PaymentService.updateData(contribution.contact, { mandateId: null });
   } else {
     log.info("Unlinked mandate " + mandateId);
   }
@@ -231,27 +234,28 @@ export async function cancelMandate(mandateId: string): Promise<void> {
 async function findOrCreatePayment(
   gcPayment: GCPayment
 ): Promise<Payment | undefined> {
-  const payment = await getRepository(Payment).findOne(gcPayment.id, {
-    relations: ["contact"]
+  const payment = await getRepository(Payment).findOne({
+    where: { id: gcPayment.id! },
+    relations: { contact: true }
   });
   if (payment) {
     return payment;
   }
 
-  const data = await PaymentService.getDataBy(
+  const contribution = await PaymentService.getContributionBy(
     "mandateId",
     gcPayment.links!.mandate!
   );
 
   // If not found then the mandate wasn't created by us
-  if (data) {
+  if (contribution) {
     log.info("Create payment " + gcPayment.id, {
-      contactId: data.contact.id,
+      contactId: contribution.contact.id,
       gcPaymentId: gcPayment.id
     });
     const newPayment = new Payment();
     newPayment.id = gcPayment.id!;
-    newPayment.contact = data.contact;
+    newPayment.contact = contribution.contact;
     if (gcPayment.links?.subscription) {
       newPayment.subscriptionId = gcPayment.links.subscription;
     }
