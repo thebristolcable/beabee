@@ -16,9 +16,9 @@ import Referral from "@models/Referral";
 import { completeSchema } from "./schemas.json";
 
 async function getJoinCallout() {
-  const calloutId = OptionsService.getText("join-poll");
+  const calloutId = OptionsService.getText("join-survey");
   return calloutId
-    ? await getRepository(Callout).findOne(calloutId)
+    ? await getRepository(Callout).findOneBy({ id: calloutId })
     : undefined;
 }
 
@@ -31,8 +31,8 @@ app.use(isLoggedIn);
 app.get(
   "/",
   wrapAsync(async function (req, res) {
-    const referral = await getRepository(Referral).findOne({
-      referee: req.user!
+    const referral = await getRepository(Referral).findOneBy({
+      refereeId: req.user!.id
     });
 
     res.render("complete", {
@@ -65,7 +65,9 @@ app.post(
         password: await generatePassword(password)
       });
 
-      const referral = await getRepository(Referral).findOne({ referee: user });
+      const referral = await getRepository(Referral).findOneBy({
+        refereeId: user.id
+      });
 
       const callout = await getJoinCallout();
       if (callout && req.body.data) {

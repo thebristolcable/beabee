@@ -12,9 +12,9 @@ app.use(isLoggedIn);
 
 app.use(
   wrapAsync(async (req, res, next) => {
-    req.user!.profile = await getRepository(ContactProfile).findOneOrFail(
-      req.user!.id
-    );
+    req.user!.profile = await getRepository(ContactProfile).findOneByOrFail({
+      contactId: req.user!.id
+    });
     next();
   })
 );

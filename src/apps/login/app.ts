@@ -57,7 +57,7 @@ app.get(
         isValidNextUrl(nextParam) ? nextParam : "/"
       );
     } else {
-      const contact = await ContactsService.findOne(req.params.id);
+      const contact = await ContactsService.findOneBy({ id: req.params.id });
       if (contact) {
         // Generate a new link and email the user
         const newLoginOverride = await getRepository(LoginOverrideFlow).save({
