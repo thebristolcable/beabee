@@ -1,9 +1,8 @@
 import { RoleType, RoleTypes } from "@beabee/beabee-common";
-import { IsIn, IsString } from "class-validator";
+import { IsIn, IsUUID } from "class-validator";
 
 export class ContactRoleParams {
-  // TODO: fix invalid UUIDs in Cable version
-  @IsString()
+  @IsUUID("4")
   id!: string;
 
   @IsIn(RoleTypes)
