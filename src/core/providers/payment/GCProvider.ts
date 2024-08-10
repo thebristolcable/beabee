@@ -1,37 +1,36 @@
-import { PaymentMethod } from "@beabee/beabee-common";
+import { PaymentMethod, PaymentSource } from "@beabee/beabee-common";
 import { Subscription } from "gocardless-nodejs";
 import moment from "moment";
 
 import gocardless from "@core/lib/gocardless";
 import { log as mainLogger } from "@core/logging";
-import {
-  ContributionInfo,
-  getActualAmount,
-  PaymentForm,
-  PaymentSource
-} from "@core/utils";
+import { getActualAmount } from "@core/utils";
 import {
   updateSubscription,
   createSubscription,
   prorateSubscription,
-  hasPendingPayment,
-  getSubscriptionNextChargeDate
+  hasPendingPayment
 } from "@core/utils/payment/gocardless";
 import { calcRenewalDate } from "@core/utils/payment";
 
-import { PaymentProvider, UpdateContributionResult } from ".";
-import { CompletedPaymentFlow } from "@core/providers/payment-flow";
+import { PaymentProvider } from ".";
 
 import Contact from "@models/Contact";
-import { GCPaymentData } from "@models/PaymentData";
 
 import NoPaymentMethod from "@api/errors/NoPaymentMethod";
 
 import config from "@config";
 
+import {
+  CompletedPaymentFlow,
+  ContributionInfo,
+  PaymentForm,
+  UpdateContributionResult
+} from "@type/index";
+
 const log = mainLogger.child({ app: "gc-payment-provider" });
 
-export default class GCProvider extends PaymentProvider<GCPaymentData> {
+export default class GCProvider extends PaymentProvider {
   async getContributionInfo(): Promise<Partial<ContributionInfo>> {
     let paymentSource: PaymentSource | undefined;
     let pendingPayment = false;

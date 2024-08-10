@@ -1,51 +1,12 @@
 import express from "express";
 import moment from "moment";
-import { createQueryBuilder, getRepository } from "typeorm";
 
-import { hasNewModel, hasSchema, isAdmin } from "@core/middleware";
-import { createDateTime, wrapAsync } from "@core/utils";
+import { createQueryBuilder, getRepository } from "@core/database";
+import { hasNewModel, isAdmin } from "@core/middleware";
+import { wrapAsync } from "@core/utils";
 
-import Callout, { CalloutAccess } from "@models/Callout";
+import Callout from "@models/Callout";
 import CalloutResponse from "@models/CalloutResponse";
-
-import { createPollSchema } from "./schemas.json";
-import { exportCalloutResponses } from "@api/data/CalloutResponseData";
-
-interface CreatePollSchema {
-  title: string;
-  slug: string;
-  excerpt: string;
-  image: string;
-  closed?: boolean;
-  mcMergeField?: string;
-  pollMergeField?: string;
-  allowUpdate?: boolean;
-  allowMultiple?: boolean;
-  startsDate?: string;
-  startsTime?: string;
-  expiresDate?: string;
-  expiresTime?: string;
-  access: CalloutAccess;
-  hidden?: boolean;
-}
-
-function schemaToPoll(data: CreatePollSchema): Callout {
-  const poll = new Callout();
-  poll.title = data.title;
-  poll.slug = data.slug;
-  poll.excerpt = data.excerpt;
-  poll.image = data.image;
-  poll.mcMergeField = data.mcMergeField || null;
-  poll.pollMergeField = data.pollMergeField || null;
-  poll.allowUpdate = !!data.allowUpdate;
-  poll.allowMultiple = !!data.allowMultiple;
-  poll.access = data.access;
-  poll.hidden = !!data.hidden;
-  poll.starts = createDateTime(data.startsDate, data.startsTime);
-  poll.expires = createDateTime(data.expiresDate, data.expiresTime);
-
-  return poll;
-}
 
 const app = express();
 
@@ -57,6 +18,7 @@ app.get(
   "/",
   wrapAsync(async (req, res) => {
     const polls = await createQueryBuilder(Callout, "p")
+      .innerJoinAndSelect("p.variants", "v")
       .loadRelationCountAndMap("p.responseCount", "p.responses")
       .orderBy({ date: "DESC" })
       .getMany();
@@ -65,36 +27,21 @@ app.get(
   })
 );
 
-app.post(
-  "/",
-  hasSchema(createPollSchema).orFlash,
-  wrapAsync(async (req, res) => {
-    const poll = await getRepository(Callout).save({
-      ...schemaToPoll(req.body),
-      intro: "",
-      thanksText: "",
-      thanksTitle: "",
-      thanksRedirect: ""
-    });
-    req.flash("success", "polls-created");
-    res.redirect("/tools/polls/" + poll.slug);
-  })
-);
-
 app.get(
   "/:slug",
-  hasNewModel(Callout, "slug"),
+  hasNewModel(Callout, "slug", { relations: { variants: true } }),
   wrapAsync(async (req, res) => {
+    const poll = req.model as Callout;
     const responsesCount = await getRepository(CalloutResponse).count({
-      where: { callout: req.model }
+      where: { calloutId: poll.id }
     });
-    res.render("poll", { poll: req.model, responsesCount });
+    res.render("poll", { poll, responsesCount });
   })
 );
 
 app.get(
   "/:slug/responses",
-  hasNewModel(Callout, "slug"),
+  hasNewModel(Callout, "slug", { relations: { variants: true } }),
   wrapAsync(async (req, res, next) => {
     const poll = req.model as Callout;
     if (poll.responsePassword && req.query.password !== poll.responsePassword) {
@@ -102,11 +49,11 @@ app.get(
       next("route");
     } else {
       const responses = await getRepository(CalloutResponse).find({
-        where: { callout: req.model },
+        where: { calloutId: poll.id },
         order: {
           createdAt: "ASC"
         },
-        relations: ["contact"]
+        relations: { contact: true }
       });
       const responsesWithText = responses.map((response) => ({
         ...response,
@@ -128,64 +75,17 @@ app.post(
 
     switch (req.body.action) {
       case "update":
-        await getRepository(Callout).update(
-          callout.slug,
-          schemaToPoll(req.body) as any
-        );
+        await getRepository(Callout).update(callout.id, {
+          pollMergeField: req.body.pollMergeField,
+          mcMergeField: req.body.mcMergeField
+        });
         req.flash("success", "polls-updated");
         res.redirect(req.originalUrl);
         break;
 
-      case "edit-form": {
-        await getRepository(Callout).update(callout.slug, {
-          formSchema: JSON.parse(req.body.formSchema),
-          intro: req.body.intro,
-          thanksText: req.body.thanksText,
-          thanksTitle: req.body.thanksTitle,
-          thanksRedirect: req.body.thanksRedirect
-        });
-        req.flash("success", "polls-updated");
-        res.redirect(req.originalUrl);
-        break;
-      }
-      case "replicate": {
-        const newCallout = getRepository(Callout).create({
-          ...callout,
-          date: new Date(),
-          title: req.body.title,
-          slug: req.body.slug,
-          starts: null,
-          expires: null
-        });
-        await getRepository(Callout).save(newCallout);
-        res.redirect("/tools/polls/" + newCallout.slug);
-        break;
-      }
-      case "delete":
-        await getRepository(Callout).delete(callout.slug);
-        req.flash("success", "polls-deleted");
-        res.redirect("/tools/polls");
-        break;
-      case "export-responses": {
-        if (
-          callout.responsePassword &&
-          req.query.password !== callout.responsePassword
-        ) {
-          req.flash("error", "polls-responses-password-protected");
-          res.redirect(req.originalUrl);
-        } else {
-          const [exportName, exportData] = await exportCalloutResponses(
-            undefined,
-            req.user!,
-            callout
-          );
-          res.attachment(exportName).send(exportData);
-        }
-        break;
-      }
       case "delete-responses":
         await getRepository(CalloutResponse).delete({
-          callout: { slug: callout.slug }
+          calloutId: callout.id
         });
         req.flash("success", "polls-responses-deleted");
         res.redirect("/tools/polls/" + callout.slug);

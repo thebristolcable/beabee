@@ -1,8 +1,9 @@
-import { Brackets, createQueryBuilder, SelectQueryBuilder } from "typeorm";
+import { Brackets, SelectQueryBuilder } from "typeorm";
 
+import { createQueryBuilder } from "@core/database";
 import { Param } from "@core/utils/params";
 
-import PaymentData from "@models/PaymentData";
+import ContactContribution from "@models/ContactContribution";
 import Contact from "@models/Contact";
 
 import BaseExport, { ExportResult } from "./BaseExport";
@@ -44,8 +45,8 @@ export default class ActiveMembersExport extends BaseExport<Contact> {
 
     if (this.ex!.params?.hasActiveSubscription) {
       query
-        .innerJoin(PaymentData, "pd", "pd.contactId = m.id")
-        .andWhere("pd.data ->> 'subscriptionId' IS NOT NULL");
+        .innerJoin(ContactContribution, "cc", "cc.contactId = m.id")
+        .andWhere("cc.subscriptionId IS NOT NULL");
     }
 
     return query;

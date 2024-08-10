@@ -65,11 +65,12 @@ const adminEmailTemplates = {
     MEMBERNAME: params.contact.fullname
   }),
   "new-callout-response": (params: {
-    callout: Callout;
+    calloutSlug: string;
+    calloutTitle: string;
     responderName: string;
   }) => ({
-    CALLOUTSLUG: params.callout.slug,
-    CALLOUTTITLE: params.callout.title,
+    CALLOUTSLUG: params.calloutSlug,
+    CALLOUTTITLE: params.calloutTitle,
     RESPNAME: params.responderName
   })
 } as const;
@@ -80,6 +81,9 @@ const contactEmailTemplates = {
   }),
   "welcome-post-gift": () => ({}),
   "reset-password": (_: Contact, params: { rpLink: string }) => ({
+    RPLINK: params.rpLink
+  }),
+  "reset-device": (_: Contact, params: { rpLink: string }) => ({
     RPLINK: params.rpLink
   }),
   "cancelled-contribution": (contact: Contact) => ({
@@ -147,8 +151,8 @@ class EmailService {
     config.email.provider === "mandrill"
       ? new MandrillProvider(config.email.settings)
       : config.email.provider === "sendgrid"
-      ? new SendGridProvider(config.email.settings)
-      : new SMTPProvider(config.email.settings);
+        ? new SendGridProvider(config.email.settings)
+        : new SMTPProvider(config.email.settings);
 
   private defaultEmails: Partial<
     Record<Locale, Partial<Record<EmailTemplateId, Email>>>
@@ -326,9 +330,11 @@ class EmailService {
   }
 
   private getDefaultEmail(template: EmailTemplateId): Email | undefined {
-    return this.defaultEmails[OptionsService.getText("locale") as Locale]?.[
-      template
-    ];
+    const locale = OptionsService.getText("locale") as Locale;
+    return (
+      this.defaultEmails[locale]?.[template] ||
+      this.defaultEmails.en?.[template]
+    );
   }
 
   private convertContactToRecipient(

@@ -1,11 +1,14 @@
 import express, { Request, Response, NextFunction } from "express";
-import { getRepository } from "typeorm";
 
+import { getRepository } from "@core/database";
 import { isAdmin } from "@core/middleware";
 import { wrapAsync } from "@core/utils";
 
-import Content, { ContentId } from "@models/Content";
 import OptionsService from "@core/services/OptionsService";
+
+import Content from "@models/Content";
+
+import type { ContentId } from "@beabee/beabee-common";
 
 const app = express();
 
@@ -24,7 +27,9 @@ app.get(
       general: get("general"),
       join: get("join"),
       joinSetup: get("join/setup"),
-      profile: get("profile")
+      profile: get("profile"),
+      payment: get("payment"),
+      telegram: get("telegram")
     });
   })
 );
@@ -42,7 +47,10 @@ const parseData = {
       presetAmounts: p.presetAmounts.split(",").map((s) => Number(s.trim()))
     })),
     showNoContribution: data.showNoContribution === "true",
-    paymentMethods: data.paymentMethods.split(",").map((s: string) => s.trim())
+    paymentMethods: data.paymentMethods
+      .split(",")
+      .map((s: string) => s.trim())
+      .filter((s: string) => !!s)
   }),
   "join/setup": (data: any) => ({
     ...data,
@@ -51,7 +59,9 @@ const parseData = {
   profile: (d: any) => d,
   contacts: (d: any) => d,
   share: (d: any) => d,
-  email: (d: any) => d
+  email: (d: any) => d,
+  payment: (d: any) => d,
+  telegram: (d: any) => d
 } as const;
 
 // urlencoding parser doesn't support overwriting if the same query param

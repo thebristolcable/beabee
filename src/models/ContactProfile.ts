@@ -1,12 +1,16 @@
 import { NewsletterStatus } from "@beabee/beabee-common";
-import { Column, Entity, JoinColumn, OneToOne } from "typeorm";
+import { Column, Entity, JoinColumn, OneToOne, PrimaryColumn } from "typeorm";
 
-import type Address from "./Address";
 import type Contact from "./Contact";
+
+import { Address } from "@type/address";
 
 @Entity()
 export default class ContactProfile {
-  @OneToOne("Contact", "profile", { primary: true })
+  @PrimaryColumn()
+  contactId!: string;
+
+  @OneToOne("Contact", "profile")
   @JoinColumn()
   contact!: Contact;
 

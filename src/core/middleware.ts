@@ -1,7 +1,8 @@
 import { ErrorObject, ValidateFunction } from "ajv";
 import { NextFunction, Request, RequestHandler, Response } from "express";
-import { EntityTarget, FindOneOptions, getRepository } from "typeorm";
+import { EntityTarget, FindOneOptions, ObjectLiteral } from "typeorm";
 
+import { getRepository } from "@core/database";
 import ajv from "@core/lib/ajv";
 import { wrapAsync, isInvalidType } from "@core/utils";
 import * as auth from "@core/utils/auth";
@@ -52,8 +53,8 @@ function convertErrorsToMessages(errors: ErrorObject[]): string[] {
         return OptionsService.isKey(key)
           ? OptionsService.getText(key)
           : config.dev
-          ? key
-          : genericErrorMessage;
+            ? key
+            : genericErrorMessage;
       })
       // Don't show duplicate errors twice
       .filter((value, index, arr) => arr.indexOf(value) === index)
@@ -124,7 +125,7 @@ export function hasSchema(
   };
 }
 
-export function hasNewModel<T>(
+export function hasNewModel<T extends ObjectLiteral>(
   entity: EntityTarget<T>,
   prop: keyof T,
   findOpts: FindOneOptions<T> = {}
@@ -135,7 +136,7 @@ export function hasNewModel<T>(
         req.model = await getRepository(entity).findOne({
           where: {
             [prop]: req.params[prop as string]
-          },
+          } as T,
           ...findOpts
         });
       } catch (err) {
@@ -152,6 +153,13 @@ export function hasNewModel<T>(
   });
 }
 
+/**
+ * @deprecated The old login is no longer used
+ * @param req
+ * @param res
+ * @param next
+ * @returns
+ */
 export function isLoggedIn(
   req: Request,
   res: Response,
@@ -168,22 +176,9 @@ export function isLoggedIn(
   }
 }
 
-export function isNotLoggedIn(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
-  const status = auth.loggedIn(req);
-  switch (status) {
-    case auth.AuthenticationStatus.NOT_LOGGED_IN:
-      return next();
-    default:
-      res.redirect("/");
-      return;
-  }
-}
-
-// Express middleware to redirect users without admin/superadmin privileges
+/**
+ * Express middleware to redirect users without admin/superadmin privileges
+ */
 export function isAdmin(req: Request, res: Response, next: NextFunction): void {
   const status = auth.canAdmin(req);
   switch (status) {
@@ -199,7 +194,13 @@ export function isAdmin(req: Request, res: Response, next: NextFunction): void {
   }
 }
 
-// Express middleware to redirect users without superadmin privilages
+/**
+ * Express middleware to redirect users without superadmin privilages
+ * @param req
+ * @param res
+ * @param next
+ * @returns
+ */
 export function isSuperAdmin(
   req: Request,
   res: Response,

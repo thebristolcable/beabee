@@ -20,12 +20,7 @@ block contents
 						tr
 							td: +itemStatus(poll)
 							td(width='100%')
-								a(href='/tools/polls/' + poll.slug)= poll.title
+								a(href='/tools/polls/' + poll.slug)= poll.variants[0].title
 								include partials/poll-tags
 							td= moment(poll.date).format('DD/MM/YYYY')
 							td= poll.responseCount
-
-	.row
-		.col-md-8
-			h4 Start a new callout
-			include partials/poll-form

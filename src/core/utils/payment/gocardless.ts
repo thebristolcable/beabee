@@ -14,10 +14,11 @@ import moment from "moment";
 
 import { log as mainLogger } from "@core/logging";
 import gocardless from "@core/lib/gocardless";
-import { PaymentForm } from "@core/utils";
 import { getChargeableAmount } from "@core/utils/payment";
 
 import config from "@config";
+
+import { PaymentForm } from "@type/index";
 
 const log = mainLogger.child({ app: "gc-utils" });
 
@@ -171,6 +172,8 @@ export async function hasPendingPayment(mandateId: string): Promise<boolean> {
 export function convertStatus(status: GCPaymentStatus): PaymentStatus {
   switch (status) {
     case GCPaymentStatus.PendingCustomerApproval:
+      return PaymentStatus.Draft;
+
     case GCPaymentStatus.PendingSubmission:
     case GCPaymentStatus.Submitted:
       return PaymentStatus.Pending;

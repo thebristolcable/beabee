@@ -6,16 +6,17 @@ import {
   PaymentStatus
 } from "@beabee/beabee-common";
 import moment from "moment";
-import { Brackets, createQueryBuilder } from "typeorm";
+import { Brackets } from "typeorm";
 
-import * as db from "@core/database";
+import { createQueryBuilder } from "@core/database";
+import { runApp } from "@core/server";
 import { getActualAmount } from "@core/utils";
 
 import config from "@config";
 
 import Payment from "@models/Payment";
 import Contact from "@models/Contact";
-import PaymentData from "@models/PaymentData";
+import ContactContribution from "@models/ContactContribution";
 
 async function logContact(type: string, conditions: Brackets[]) {
   const qb = createQueryBuilder(Contact, "m")
@@ -81,19 +82,19 @@ async function getFilters() {
     .where("p.status = 'failed'", { status: PaymentStatus.Failed });
   const hasSubscription = createQueryBuilder()
     .subQuery()
-    .select("pd.contactId")
-    .from(PaymentData, "p")
-    .where("pd.subscriptionId IS NOT NULL");
+    .select("cc.contactId")
+    .from(ContactContribution, "cc")
+    .where("cc.subscriptionId IS NOT NULL");
   const hasCancelled = createQueryBuilder()
     .subQuery()
-    .select("pd.contactId")
-    .from(PaymentData, "md")
-    .where("md.cancelledAt IS NOT NULL");
+    .select("cc.contactId")
+    .from(ContactContribution, "cc")
+    .where("cc.cancelledAt IS NOT NULL");
   const isPayingFee = createQueryBuilder()
     .subQuery()
-    .select("md.contactId")
-    .from(PaymentData, "md")
-    .where("md.payFee = TRUE");
+    .select("cc.contactId")
+    .from(ContactContribution, "cc")
+    .where("cc.payFee = TRUE");
 
   return {
     isActive: new Brackets((qb) =>
@@ -186,12 +187,4 @@ async function main() {
   await logContact("Super admin account", [filters.isSuperAdmin]);
 }
 
-db.connect().then(async () => {
-  console.log();
-  try {
-    await main();
-  } catch (err) {
-    console.error(err);
-  }
-  await db.close();
-});
+runApp(main);

@@ -1,3 +1,4 @@
+import { plainToInstance } from "class-transformer";
 import { Request } from "express";
 import {
   Body,
@@ -7,31 +8,32 @@ import {
   Post,
   Req
 } from "routing-controllers";
-import { getRepository } from "typeorm";
 
+import { getRepository } from "@core/database";
 import { generatePassword } from "@core/utils/auth";
 
 import PaymentFlowService from "@core/services/PaymentFlowService";
 
-import { PaymentFlowParams } from "@core/providers/payment-flow";
+import { GetContactDto } from "@api/dto/ContactDto";
+import { GetPaymentFlowDto } from "@api/dto/PaymentFlowDto";
+import {
+  StartSignupFlowDto,
+  CompleteSignupFlowDto
+} from "@api/dto/SignupFlowDto";
+import { SignupConfirmEmailParams } from "@api/params/SignupConfirmEmailParams";
+import ContactTransformer from "@api/transformers/ContactTransformer";
+import { login } from "@api/utils";
 
 import JoinFlow from "@models/JoinFlow";
 import Password from "@models/Password";
-
-import {
-  SignupData,
-  SignupCompleteData,
-  SignupConfirmEmailParam
-} from "@api/data/SignupData";
-import { login } from "@api/utils";
 
 @JsonController("/signup")
 export class SignupController {
   @OnUndefined(204)
   @Post("/")
   async startSignup(
-    @Body() data: SignupData
-  ): Promise<PaymentFlowParams | undefined> {
+    @Body() data: StartSignupFlowDto
+  ): Promise<GetPaymentFlowDto | undefined> {
     const baseForm = {
       email: data.email,
       password: data.password
@@ -40,7 +42,7 @@ export class SignupController {
     };
 
     if (data.contribution) {
-      return await PaymentFlowService.createPaymentJoinFlow(
+      const flow = await PaymentFlowService.createPaymentJoinFlow(
         {
           ...baseForm,
           ...data.contribution,
@@ -50,6 +52,8 @@ export class SignupController {
         data.contribution.completeUrl,
         { email: data.email }
       );
+
+      return plainToInstance(GetPaymentFlowDto, flow);
     } else {
       const joinFlow = await PaymentFlowService.createJoinFlow(baseForm, data);
       await PaymentFlowService.sendConfirmEmail(joinFlow);
@@ -58,7 +62,7 @@ export class SignupController {
 
   @OnUndefined(204)
   @Post("/complete")
-  async completeSignup(@Body() data: SignupCompleteData): Promise<void> {
+  async completeSignup(@Body() data: CompleteSignupFlowDto): Promise<void> {
     const joinFlow = await PaymentFlowService.getJoinFlowByPaymentId(
       data.paymentFlowId
     );
@@ -66,27 +70,30 @@ export class SignupController {
       throw new NotFoundError();
     }
 
-    if (data.firstname || data.lastname) {
-      joinFlow.joinForm.firstname = data.firstname || null;
-      joinFlow.joinForm.lastname = data.lastname || null;
+    // Merge additional data into the join form
+    if (data.firstname || data.lastname || data.vatNumber) {
+      Object.assign(joinFlow.joinForm, data);
       await getRepository(JoinFlow).save(joinFlow);
     }
 
     await PaymentFlowService.sendConfirmEmail(joinFlow);
   }
 
-  @OnUndefined(204)
   @Post("/confirm-email")
   async confirmEmail(
     @Req() req: Request,
-    @Body() { joinFlowId }: SignupConfirmEmailParam
-  ): Promise<void> {
-    const joinFlow = await getRepository(JoinFlow).findOne(joinFlowId);
+    @Body() { joinFlowId }: SignupConfirmEmailParams
+  ): Promise<GetContactDto> {
+    const joinFlow = await getRepository(JoinFlow).findOneBy({
+      id: joinFlowId
+    });
     if (!joinFlow) {
       throw new NotFoundError();
     }
 
     const contact = await PaymentFlowService.completeConfirmEmail(joinFlow);
     await login(req, contact);
+
+    return ContactTransformer.convert(contact);
   }
 }

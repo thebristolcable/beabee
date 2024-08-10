@@ -4,7 +4,7 @@ import {
 } from "@beabee/beabee-common";
 import { Chance } from "chance";
 import crypto from "crypto";
-import { EntityTarget } from "typeorm";
+import { EntityTarget, ObjectLiteral } from "typeorm";
 import { v4 as uuidv4 } from "uuid";
 
 import Email from "@models/Email";
@@ -19,7 +19,7 @@ import Notice from "@models/Notice";
 import Option from "@models/Option";
 import PageSettings from "@models/PageSettings";
 import Payment from "@models/Payment";
-import PaymentData from "@models/PaymentData";
+import ContactContribution from "@models/ContactContribution";
 import Callout from "@models/Callout";
 import CalloutResponse from "@models/CalloutResponse";
 import CalloutResponseTag from "@models/CalloutResponseTag";
@@ -33,20 +33,20 @@ import Segment from "@models/Segment";
 import SegmentContact from "@models/SegmentContact";
 import SegmentOngoingEmail from "@models/SegmentOngoingEmail";
 import CalloutResponseComment from "@models/CalloutResponseComment";
-import ResetPasswordFlow from "@models/ResetPasswordFlow";
+import ResetSecurityFlow from "@models/ResetSecurityFlow";
 import Password from "@models/Password";
 
 export type PropertyMap<T> = ((prop: T) => T) | ObjectMap<T>;
 export type ObjectMap<T> = { [K in keyof T]?: PropertyMap<T[K]> };
 
-export interface ModelAnonymiser<T> {
+export interface ModelAnonymiser<T extends ObjectLiteral = ObjectLiteral> {
   model: EntityTarget<T>;
   objectMap: ObjectMap<T>;
 }
 
 // Functions to facilitate type checking when creating anonymisers
 
-function createModelAnonymiser<T>(
+function createModelAnonymiser<T extends ObjectLiteral>(
   model: EntityTarget<T>,
   objectMap: ObjectMap<T> = {}
 ): ModelAnonymiser<T> {
@@ -77,15 +77,10 @@ export function createComponentAnonymiser(
         return chance.pickone([true, false]);
       case "number":
         return chance.integer();
-      case "password":
-        return chance.word();
       case "textarea":
         return chance.paragraph();
       case "textfield":
         return chance.sentence();
-      case "button":
-        return v;
-
       case "select":
       case "radio":
       case "selectboxes":
@@ -94,6 +89,8 @@ export function createComponentAnonymiser(
             ? component.data.values
             : component.values;
         return chance.pickone(values.map(({ value }) => value));
+      default:
+        throw new Error("Unknown component type " + component.type);
     }
   }
 
@@ -123,9 +120,6 @@ function uniqueCode(): string {
   return letter.padStart(2, "A") + (no + "").padStart(3, "0");
 }
 
-// Relations will be strings but the type checker thinks they will be objects
-const relationId = () => uuidv4() as any;
-
 // Model anonymisers
 
 export const calloutsAnonymiser = createModelAnonymiser(Callout);
@@ -134,8 +128,8 @@ export const calloutResponsesAnonymiser = createModelAnonymiser(
   CalloutResponse,
   {
     id: () => uuidv4(),
-    contact: relationId,
-    assignee: relationId,
+    contactId: () => uuidv4(),
+    assigneeId: () => uuidv4(),
     guestName: () => chance.name(),
     guestEmail: () => chance.email({ domain: "example.com", length: 10 })
   }
@@ -145,8 +139,8 @@ export const calloutResponseCommentsAnonymiser = createModelAnonymiser(
   CalloutResponseComment,
   {
     id: () => uuidv4(),
-    response: relationId,
-    contact: relationId,
+    responseId: () => uuidv4(),
+    contactId: () => uuidv4(),
     text: () => chance.paragraph()
   }
 );
@@ -154,8 +148,8 @@ export const calloutResponseCommentsAnonymiser = createModelAnonymiser(
 export const calloutResponseTagsAnonymiser = createModelAnonymiser(
   CalloutResponseTag,
   {
-    response: relationId,
-    tag: relationId
+    responseId: () => uuidv4(),
+    tagId: () => uuidv4()
   }
 );
 
@@ -170,14 +164,23 @@ export const contactAnonymiser = createModelAnonymiser(Contact, {
   email: () => chance.email({ domain: "fake.beabee.io", length: 10 }),
   firstname: () => chance.first(),
   lastname: () => chance.last(),
-  otp: () => ({ activated: false, key: null }),
   password: () => Password.none,
   pollsCode: uniqueCode,
   referralCode: uniqueCode
 });
 
+export const contactContributionAnonymiser = createModelAnonymiser(
+  ContactContribution,
+  {
+    contactId: () => uuidv4(),
+    customerId: randomId(12, "CU"),
+    mandateId: randomId(12, "MD"),
+    subscriptionId: randomId(12, "SB")
+  }
+);
+
 export const contactProfileAnonymiser = createModelAnonymiser(ContactProfile, {
-  contact: relationId,
+  contactId: () => uuidv4(),
   description: () => chance.sentence(),
   bio: () => chance.paragraph(),
   notes: () => chance.sentence(),
@@ -193,7 +196,7 @@ export const contactProfileAnonymiser = createModelAnonymiser(ContactProfile, {
 });
 
 export const contactRoleAnonymiser = createModelAnonymiser(ContactRole, {
-  contact: relationId
+  contactId: () => uuidv4()
 });
 
 export const emailAnonymiser = createModelAnonymiser(Email);
@@ -220,7 +223,7 @@ export const giftFlowAnonymiser = createModelAnonymiser(GiftFlow, {
     fromName: () => chance.name(),
     fromEmail: () => chance.email({ domain: "fake.beabee.io", length: 10 })
   }),
-  giftee: relationId
+  gifteeId: () => uuidv4()
 });
 
 export const noticesAnonymiser = createModelAnonymiser(Notice);
@@ -229,30 +232,19 @@ export const optionsAnonymiser = createModelAnonymiser(Option);
 
 export const pageSettingsAnonymiser = createModelAnonymiser(PageSettings);
 
-export const paymentDataAnonymiser = createModelAnonymiser(PaymentData, {
-  contact: relationId,
-  data: createObjectMap<PaymentData["data"]>({
-    customerId: randomId(12, "CU"),
-    mandateId: randomId(12, "MD"),
-    subscriptionId: randomId(12, "SB"),
-    source: () => chance.pickone(["Standing Order", "PayPal", "Cash in hand"]),
-    reference: () => chance.word()
-  })
-});
-
 export const paymentsAnonymiser = createModelAnonymiser(Payment, {
   id: () => uuidv4(),
   subscriptionId: randomId(12, "SB"),
-  contact: relationId
+  contactId: () => uuidv4()
 });
 
 export const projectsAnonymiser = createModelAnonymiser(Project, {
-  owner: relationId
+  ownerId: () => uuidv4()
 });
 
 export const projectContactsAnonymiser = createModelAnonymiser(ProjectContact, {
   id: () => uuidv4(),
-  contact: relationId,
+  contactId: () => uuidv4(),
   tag: () => chance.profession()
 });
 
@@ -260,34 +252,34 @@ export const projectEngagmentsAnonymiser = createModelAnonymiser(
   ProjectEngagement,
   {
     id: () => uuidv4(),
-    byContact: relationId,
-    toContact: relationId,
+    byContactId: () => uuidv4(),
+    toContactId: () => uuidv4(),
     notes: () => chance.sentence()
   }
 );
 
 export const referralsAnonymiser = createModelAnonymiser(Referral, {
   id: () => uuidv4(),
-  referrer: relationId,
-  referee: relationId
+  referrerId: () => uuidv4(),
+  refereeId: () => uuidv4()
 });
 
 export const referralsGiftAnonymiser = createModelAnonymiser(ReferralGift, {
   stock: copy // Add to map so it is serialised correctly
 });
 
-export const resetPasswordFlowAnonymiser = createModelAnonymiser(
-  ResetPasswordFlow,
+export const resetSecurityFlowAnonymiser = createModelAnonymiser(
+  ResetSecurityFlow,
   {
     id: () => uuidv4(),
-    contact: relationId
+    contactId: () => uuidv4()
   }
 );
 
 export const segmentsAnonymiser = createModelAnonymiser(Segment);
 
 export const segmentContactsAnonymiser = createModelAnonymiser(SegmentContact, {
-  contact: relationId
+  contactId: () => uuidv4()
 });
 
 export const segmentOngoingEmailsAnonymiser =

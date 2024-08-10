@@ -6,12 +6,12 @@ import {
   PrimaryGeneratedColumn
 } from "typeorm";
 
-import type Address from "./Address";
 import type Contact from "./Contact";
 
 interface GiftAddress extends Address {
   size: "XS" | "S" | "M" | "L" | "XL" | "XXL";
 }
+import { Address } from "@type/address";
 
 export class GiftForm {
   @Column()
@@ -68,6 +68,8 @@ export default class GiftFlow {
   @Column({ default: false })
   processed!: boolean;
 
+  @Column({ type: String, nullable: true })
+  gifteeId!: string | null;
   @ManyToOne("Contact")
-  giftee?: Contact;
+  giftee!: Contact | null;
 }

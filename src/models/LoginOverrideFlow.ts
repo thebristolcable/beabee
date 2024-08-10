@@ -1,5 +1,6 @@
 import { differenceInHours } from "date-fns";
 import {
+  Column,
   CreateDateColumn,
   Entity,
   ManyToOne,
@@ -12,6 +13,8 @@ export default class LoginOverrideFlow {
   @PrimaryGeneratedColumn("uuid")
   id!: string;
 
+  @Column()
+  contactId!: string;
   @ManyToOne("Contact")
   contact!: Contact;
 

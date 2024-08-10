@@ -18,8 +18,10 @@ export default class Project {
   @CreateDateColumn()
   date!: Date;
 
-  @ManyToOne("Contact")
-  owner!: Contact;
+  @Column({ type: String, nullable: true })
+  ownerId!: string | null;
+  @ManyToOne("Contact", { nullable: true })
+  owner!: Contact | null;
 
   @Column()
   title!: string;

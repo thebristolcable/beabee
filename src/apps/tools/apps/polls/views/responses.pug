@@ -28,13 +28,13 @@ block append js
 
 	script.
 		var formResponses = !{JSON.stringify(responses)};
-		var formSchema = !{JSON.stringify(poll.formSchema)};
+		var formSchema = !{JSON.stringify(poll.formSchema.slides[0])};
 	script(src='/static/js/poll-responses.js?v=' + git)
 
 block contents
 	.row
 		.col-md-12
-			+page_header(poll.title)
+			+page_header(poll.variants[0].title)
 
 	.row
 		.col-md-offset-2.col-md-8

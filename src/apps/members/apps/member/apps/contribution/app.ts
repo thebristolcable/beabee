@@ -29,8 +29,6 @@ app.get(
 
       res.render("automatic", {
         member: contact,
-        bankAccount: (await PaymentService.getContributionInfo(contact))
-          .paymentSource,
         canChange: true, // TODO: remove
         monthsLeft: calcMonthsLeft(contact),
         payments,

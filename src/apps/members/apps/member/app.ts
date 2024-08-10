@@ -1,8 +1,9 @@
 import express from "express";
-import { getRepository } from "typeorm";
+import moment from "moment";
 
 import config from "@config";
 
+import { getRepository } from "@core/database";
 import { isAdmin } from "@core/middleware";
 import { wrapAsync } from "@core/utils";
 import { canSuperAdmin } from "@core/utils/auth";
@@ -14,7 +15,9 @@ import ReferralsService from "@core/services/ReferralsService";
 
 import LoginOverrideFlow from "@models/LoginOverrideFlow";
 import Contact from "@models/Contact";
-import ResetPasswordFlow from "@models/ResetPasswordFlow";
+import ResetSecurityFlow from "@models/ResetSecurityFlow";
+
+import { RESET_SECURITY_FLOW_TYPE } from "@enums/reset-security-flow-type";
 
 const app = express();
 
@@ -31,12 +34,13 @@ app.use(
     // Bit of a hack to get parent app params
     const contact = await ContactsService.findOne({
       where: { id: req.allParams.uuid },
-      relations: ["profile"]
+      relations: { profile: true }
     });
     if (contact) {
       req.model = contact;
-      const { data, method } = await PaymentService.getData(contact);
-      res.locals.paymentData = data;
+      const { method, ...contribution } =
+        await PaymentService.getContribution(contact);
+      res.locals.contribution = contribution;
       res.locals.paymentMethod = method;
       next();
     } else {
@@ -51,12 +55,12 @@ app.get(
     const contact = req.model as Contact;
     const availableTags = await getAvailableTags();
 
-    const rpFlow = await getRepository(ResetPasswordFlow).findOne({
-      where: { contact: contact },
+    const rpFlow = await getRepository(ResetSecurityFlow).findOne({
+      where: { contactId: contact.id },
       order: { date: "DESC" }
     });
     const loFlow = await getRepository(LoginOverrideFlow).findOne({
-      where: { contact },
+      where: { contactId: contact.id },
       order: { date: "DESC" }
     });
 
@@ -113,15 +117,13 @@ app.post(
         req.flash("success", "member-login-override-generated");
         break;
       case "password-reset":
-        await getRepository(ResetPasswordFlow).save({ contact });
+        await getRepository(ResetSecurityFlow).save({
+          contact,
+          type: RESET_SECURITY_FLOW_TYPE.PASSWORD
+        });
         req.flash("success", "member-password-reset-generated");
         break;
       case "permanently-delete":
-        // TODO: anonymise data in callout answers
-
-        await ReferralsService.permanentlyDeleteContact(contact);
-        await PaymentService.permanentlyDeleteContact(contact);
-
         await ContactsService.permanentlyDeleteContact(contact);
 
         req.flash("success", "member-permanently-deleted");
@@ -129,21 +131,6 @@ app.post(
         return;
     }
 
-    res.redirect(req.baseUrl);
-  })
-);
-
-app.get("/2fa", (req, res) => {
-  res.render("2fa", { member: req.model });
-});
-
-app.post(
-  "/2fa",
-  wrapAsync(async (req, res) => {
-    await ContactsService.updateContact(req.model as Contact, {
-      otp: { key: null, activated: false }
-    });
-    req.flash("success", "2fa-disabled");
     res.redirect(req.baseUrl);
   })
 );

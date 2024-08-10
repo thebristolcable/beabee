@@ -1,8 +1,8 @@
 import { RoleTypes, RoleType } from "@beabee/beabee-common";
 import express from "express";
 import passport from "passport";
-import { getRepository } from "typeorm";
 
+import { getRepository } from "@core/database";
 import { isValidNextUrl, getNextParam, wrapAsync } from "@core/utils";
 import { loginAndRedirect } from "@core/utils/contact";
 
@@ -57,7 +57,7 @@ app.get(
         isValidNextUrl(nextParam) ? nextParam : "/"
       );
     } else {
-      const contact = await ContactsService.findOne(req.params.id);
+      const contact = await ContactsService.findOneBy({ id: req.params.id });
       if (contact) {
         // Generate a new link and email the user
         const newLoginOverride = await getRepository(LoginOverrideFlow).save({
@@ -92,11 +92,11 @@ if (config.dev) {
           where: {
             type: req.params.id as RoleType
           },
-          relations: ["contact"]
+          relations: { contact: true }
         });
         contact = role?.contact;
       } else {
-        contact = await ContactsService.findOne(req.params.id);
+        contact = await ContactsService.findOneBy({ id: req.params.id });
       }
 
       if (contact) {

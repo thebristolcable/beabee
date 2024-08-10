@@ -1,17 +1,19 @@
 import {
   ContributionPeriod,
   PaymentMethod,
-  PaymentStatus
+  PaymentStatus,
+  PaymentSource
 } from "@beabee/beabee-common";
 import { differenceInMonths } from "date-fns";
-import Stripe from "stripe";
 
-import stripe from "@core/lib/stripe";
+import OptionsService from "@core/services/OptionsService";
+
+import { stripe, Stripe } from "@core/lib/stripe";
 import { log as mainLogger } from "@core/logging";
-import { PaymentForm, PaymentSource } from "@core/utils";
 import { getChargeableAmount } from "@core/utils/payment";
 
 import config from "@config";
+import { PaymentForm } from "@type/index";
 
 const log = mainLogger.child({ app: "stripe-utils" });
 
@@ -41,10 +43,11 @@ async function calculateProrationParams(
   );
   // Calculate exact number of seconds to remove (rather than just "one month")
   // as this aligns with Stripe's calculations
-  const prorationTime =
+  const prorationTime = Math.floor(
     subscription.current_period_end -
-    (subscription.current_period_end - subscription.current_period_start) *
-      (monthsLeft / 12);
+      (subscription.current_period_end - subscription.current_period_start) *
+        (monthsLeft / 12)
+  );
 
   const invoice = await stripe.invoices.retrieveUpcoming({
     subscription: subscription.id,
@@ -76,7 +79,7 @@ export async function createSubscription(
     renewalDate
   });
 
-  return await stripe.subscriptions.create({
+  const params: Stripe.SubscriptionCreateParams = {
     customer: customerId,
     items: [{ price_data: getPriceData(paymentForm, paymentMethod) }],
     off_session: true,
@@ -85,9 +88,24 @@ export async function createSubscription(
         billing_cycle_anchor: Math.floor(+renewalDate / 1000),
         proration_behavior: "none"
       })
-  });
+  };
+
+  if (OptionsService.getBool("tax-rate-enabled")) {
+    params.default_tax_rates = [
+      OptionsService.getText("tax-rate-stripe-default-id")
+    ];
+  }
+
+  return await stripe.subscriptions.create(params);
 }
 
+/**
+ * Update a subscription with a new payment method.
+ * @param subscriptionId
+ * @param paymentForm
+ * @param paymentMethod
+ * @returns
+ */
 export async function updateSubscription(
   subscriptionId: string,
   paymentForm: PaymentForm,
@@ -127,9 +145,7 @@ export async function updateSubscription(
   const startNow = prorationAmount === 0 || paymentForm.prorate;
 
   if (startNow) {
-    // Start new contribution immediately (monthly or prorated annuals)
-    log.info(`Updating subscription for ${subscription.id}`);
-    await stripe.subscriptions.update(subscriptionId, {
+    const params: Stripe.SubscriptionUpdateParams = {
       items: [newSubscriptionItem],
       ...(prorationAmount > 0
         ? {
@@ -143,7 +159,11 @@ export async function updateSubscription(
             // Stripe starts the new billing cycle immediately
             trial_end: subscription.current_period_end
           })
-    });
+    };
+
+    // Start new contribution immediately (monthly or prorated annuals)
+    log.info(`Updating subscription for ${subscription.id}`);
+    await stripe.subscriptions.update(subscriptionId, params);
   } else {
     // Schedule the change for the next period
     log.info(`Creating new schedule for ${subscription.id}`);
@@ -173,7 +193,7 @@ export async function deleteSubscription(
   subscriptionId: string
 ): Promise<void> {
   try {
-    await stripe.subscriptions.del(subscriptionId);
+    await stripe.subscriptions.cancel(subscriptionId);
   } catch (error) {
     // Ignore resource missing errors, the subscription might have been already removed
     if (
@@ -195,6 +215,10 @@ export function paymentMethodToStripeType(
       return "sepa_debit";
     case PaymentMethod.StripeBACS:
       return "bacs_debit";
+    case PaymentMethod.StripePayPal:
+      return "paypal";
+    case PaymentMethod.GoCardlessDirectDebit:
+      return "bacs_debit";
     default:
       throw new Error("Unexpected payment method");
   }
@@ -210,6 +234,8 @@ export function stripeTypeToPaymentMethod(
       return PaymentMethod.StripeSEPA;
     case "bacs_debit":
       return PaymentMethod.StripeBACS;
+    case "paypal":
+      return PaymentMethod.StripePayPal;
     default:
       throw new Error("Unexpected Stripe payment type");
   }
@@ -223,6 +249,7 @@ export async function manadateToSource(
   if (method.type === "card" && method.card) {
     return {
       method: PaymentMethod.StripeCard,
+      isLink: false,
       last4: method.card.last4,
       expiryMonth: method.card.exp_month,
       expiryYear: method.card.exp_year
@@ -241,12 +268,26 @@ export async function manadateToSource(
       sortCode: method.bacs_debit.sort_code || "",
       last4: method.bacs_debit.last4 || ""
     };
+  } else if (method.type === "paypal" && method.paypal) {
+    return {
+      method: PaymentMethod.StripePayPal,
+      payerEmail: method.paypal.payer_email || "",
+      payerId: method.paypal.payer_id || ""
+    };
+  } else if (method.type === "link" && method.link) {
+    return {
+      method: PaymentMethod.StripeCard,
+      isLink: true,
+      email: method.link.email || ""
+    };
   }
 }
 
 export function convertStatus(status: Stripe.Invoice.Status): PaymentStatus {
   switch (status) {
     case "draft":
+      return PaymentStatus.Draft;
+
     case "open":
       return PaymentStatus.Pending;
 
@@ -254,7 +295,6 @@ export function convertStatus(status: Stripe.Invoice.Status): PaymentStatus {
       return PaymentStatus.Successful;
 
     case "void":
-    case "deleted":
       return PaymentStatus.Cancelled;
 
     case "uncollectible":
