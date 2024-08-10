@@ -10,7 +10,7 @@
     var currentResponseNo = 0;
 
     function renderResponse(responseNo, response) {
-      return form.setSubmission({data: response.answers}).then(function () {
+      return form.setSubmission({data: response.answers.slide1}).then(function () {
         const context = {
             no: responseNo + 1,
             date: response.updatedAtText,

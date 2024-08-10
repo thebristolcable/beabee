@@ -1,8 +1,7 @@
 import express from "express";
 import moment from "moment";
-import { createQueryBuilder } from "typeorm";
 
-import { getRepository } from "@core/database";
+import { createQueryBuilder, getRepository } from "@core/database";
 import { hasNewModel, isAdmin } from "@core/middleware";
 import { wrapAsync } from "@core/utils";
 
@@ -19,6 +18,7 @@ app.get(
   "/",
   wrapAsync(async (req, res) => {
     const polls = await createQueryBuilder(Callout, "p")
+      .innerJoinAndSelect("p.variants", "v")
       .loadRelationCountAndMap("p.responseCount", "p.responses")
       .orderBy({ date: "DESC" })
       .getMany();
@@ -29,13 +29,41 @@ app.get(
 
 app.get(
   "/:slug",
-  hasNewModel(Callout, "slug"),
+  hasNewModel(Callout, "slug", { relations: { variants: true } }),
   wrapAsync(async (req, res) => {
     const poll = req.model as Callout;
     const responsesCount = await getRepository(CalloutResponse).count({
       where: { calloutId: poll.id }
     });
     res.render("poll", { poll, responsesCount });
+  })
+);
+
+app.get(
+  "/:slug/responses",
+  hasNewModel(Callout, "slug", { relations: { variants: true } }),
+  wrapAsync(async (req, res, next) => {
+    const poll = req.model as Callout;
+    if (poll.responsePassword && req.query.password !== poll.responsePassword) {
+      req.flash("error", "polls-responses-password-protected");
+      next("route");
+    } else {
+      const responses = await getRepository(CalloutResponse).find({
+        where: { calloutId: poll.id },
+        order: {
+          createdAt: "ASC"
+        },
+        relations: { contact: true }
+      });
+      const responsesWithText = responses.map((response) => ({
+        ...response,
+        updatedAtText: moment.utc(response.updatedAt).format("HH:mm DD/MM/YYYY")
+      }));
+      res.render("responses", {
+        poll: req.model,
+        responses: responsesWithText
+      });
+    }
   })
 );
 
