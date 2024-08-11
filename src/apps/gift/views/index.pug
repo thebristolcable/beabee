@@ -16,18 +16,14 @@ block body
 
 			h1.join-title.text-center Gift The Cable
 
-			.alert.alert-info.
-				Order by 20th December to receive the t-shirt in time for Christmas,
-				otherwise it will be delivered in the new year.
-
 			h4 You'll be gifting someone...
 
 			ul.join-gift-reasons
 				li Our award-nominated weekly newsletter with a round up of what's happening in Bristol
-				li 10% discount on tickets to our #[a(href='https://thebristolcable.org/events' target='_blank') events]
+				li 10% or 50% discount on tickets to our #[a(href='https://thebristolcable.org/events' target='_blank') events]
 				li A quarterly print edition with our best stories, delivered to their door
 				li Membership of Bristol's community-owned media
-				li A limited edition t-shirt (12 month gift only)
+				li A limited edition t-shirt
 
 			div
 				a(href='/static/imgs/gift-tshirt-white.jpg' target='_blank'): img(src='/static/imgs/gift-tshirt-white.jpg' style='width:50%')
@@ -57,7 +53,7 @@ block body
 				h4 3. When should their gift start?
 				p This is when we'll send them their welcome email.
 				.join-field.join-field-date
-					input(type='date' name='startDate' value='2023-12-25' required).join-field__input
+					input(type='date' name='startDate' required).join-field__input
 
 				h4 4. Who shall we say the gift is from?
 				.join-field
@@ -72,15 +68,17 @@ block body
 				.join-field.join-field-message
 					textarea(name='message' maxlength='140').join-field__input
 
-				input(name='months' type='hidden')
+				input(name='months' type='hidden' value='12')
+				input(name='monthlyAmount' type='hidden')
 				.join-gift-options
-						button(value='12').btn.btn-success.btn-lg.join-btn.join-gift-btn.js-gift-type
-							| 12 month membership
+						button(value='5').btn.btn-success.btn-lg.join-btn.join-gift-btn.js-gift-type
+							| Annual membership
 							small for £60
-							small (includes free t-shirt)
-						button(value='6').btn.btn-success.btn-lg.join-btn.join-gift-btn.js-gift-type
-							| 6 month membership
-							small for £30
+							small (includes 10% event discount)
+						button(value='10').btn.btn-success.btn-lg.join-btn.join-gift-btn.js-gift-type
+							| Annual membership
+							small for £120
+							small (includes 50% event discount)
 
 				p.join-info.join-secure.small
 					svg(xmlns='http://www.w3.org/2000/svg', viewBox='0 0 24 24')

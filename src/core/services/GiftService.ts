@@ -22,8 +22,6 @@ import { Address } from "@type/address";
 const log = mainLogger.child({ app: "gift-service" });
 
 export default class GiftService {
-  private static readonly giftMonthlyAmount = 5;
-
   /**
    * Create a gift flow and return the Stripe session ID
    * @param giftForm
@@ -39,11 +37,12 @@ export default class GiftService {
       cancel_url: config.audience + "/gift",
       customer_email: giftForm.fromEmail,
       payment_method_types: ["card"],
+      mode: "payment",
       line_items: [
         {
           quantity: 1,
           price_data: {
-            unit_amount: giftForm.months * GiftService.giftMonthlyAmount * 100,
+            unit_amount: giftForm.months * giftForm.monthlyAmount * 100,
             currency: config.currencyCode.toLowerCase(),
             product_data: {
               name: `Gift membership - ${giftForm.months} month${
@@ -124,6 +123,7 @@ export default class GiftService {
       email,
       deliveryAddress,
       months,
+      monthlyAmount,
       fromName,
       message
     } = giftFlow.giftForm;
@@ -142,7 +142,7 @@ export default class GiftService {
         lastname,
         email,
         contributionType: ContributionType.Gift,
-        contributionMonthlyAmount: GiftService.giftMonthlyAmount,
+        contributionMonthlyAmount: monthlyAmount,
         roles: [role]
       },
       {

@@ -38,6 +38,9 @@ export class GiftForm {
   @Column()
   months!: number;
 
+  @Column()
+  monthlyAmount!: number;
+
   @Column({ type: "jsonb", nullable: true })
   giftAddress!: GiftAddress | null;
 

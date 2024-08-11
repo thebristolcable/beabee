@@ -9,6 +9,7 @@
         "startDate",
         "fromName",
         "fromEmail",
+        "monthlyAmount",
         "months"
       ],
       "properties": {
@@ -36,9 +37,13 @@
           "type": "string",
           "format": "email"
         },
+        "monthlyAmount": {
+          "type": "number",
+          "enum": [5, 10]
+        },
         "months": {
           "type": "number",
-          "enum": [6, 12]
+          "const": 12
         }
       }
     }

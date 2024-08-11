@@ -58,7 +58,7 @@ function checkDateInput() {
 	// Select gift type then submit
 	$('.js-gift-type').on('click', function () {
 		console.log(this.value);
-		form.elements.months.value = this.value;
+		form.elements.monthlyAmount.value = this.value;
 		if (validateForm()) {
 			purchaseGift();
 		}
