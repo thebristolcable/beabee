@@ -27,7 +27,8 @@ interface CreateGiftSchema {
   message?: string;
   fromName: string;
   fromEmail: string;
-  months: number;
+  monthlyAmount: 5 | 10;
+  months: 12;
 }
 
 interface AddressSchema {
@@ -62,6 +63,7 @@ function schemaToGiftForm(data: CreateGiftSchema): GiftForm {
   giftForm.message = data.message || null;
   giftForm.fromName = data.fromName;
   giftForm.fromEmail = data.fromEmail;
+  giftForm.monthlyAmount = data.monthlyAmount;
   giftForm.months = data.months;
   return giftForm;
 }

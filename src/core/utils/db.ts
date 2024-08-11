@@ -4,7 +4,7 @@ export async function addThenSetNotNull(
   queryRunner: QueryRunner,
   table: string,
   column: string,
-  def = ""
+  def: string | number = ""
 ) {
   await queryRunner.query(
     `ALTER TABLE "${table}" ADD "${column}" character varying`
