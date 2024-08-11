@@ -1,8 +1,6 @@
 import "module-alias/register";
 
 import { NewsletterStatus } from "@beabee/beabee-common";
-import { createQueryBuilder, getRepository } from "typeorm";
-
 import * as db from "@core/database";
 
 import NewsletterService from "@core/services/NewsletterService";
@@ -15,16 +13,17 @@ import config from "@config";
 db.connect().then(async () => {
   const isTest = process.argv[2] === "-n";
 
-  const contacts = await createQueryBuilder(Contact, "m")
+  const contacts = await db
+    .createQueryBuilder(Contact, "m")
     .innerJoinAndSelect("m.profile", "profile")
     .where("profile.newsletterStatus = :status", {
       status: NewsletterStatus.Subscribed
     })
     .getMany();
 
-  const loFlows = await getRepository(LoginOverrideFlow).save(
-    contacts.map((contact) => ({ contact }))
-  );
+  const loFlows = await db
+    .getRepository(LoginOverrideFlow)
+    .save(contacts.map((contact) => ({ contactId: contact.id })));
 
   const membersWithFields: [Contact, Record<string, string>][] = loFlows.map(
     (loFlow) => [
@@ -39,9 +38,9 @@ db.connect().then(async () => {
     for (const [contact, fields] of membersWithFields) {
       console.log(contact.id, fields.MAGICCODE);
     }
-    await getRepository(LoginOverrideFlow).delete(
-      loFlows.map((loFlow) => loFlow.id)
-    );
+    await db
+      .getRepository(LoginOverrideFlow)
+      .delete(loFlows.map((loFlow) => loFlow.id));
   } else {
     await NewsletterService.updateContactsFields(membersWithFields);
   }
