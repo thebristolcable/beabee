@@ -37,6 +37,7 @@ export default class GiftService {
       cancel_url: config.audience + "/gift",
       customer_email: giftForm.fromEmail,
       payment_method_types: ["card"],
+      mode: "payment",
       line_items: [
         {
           quantity: 1,
