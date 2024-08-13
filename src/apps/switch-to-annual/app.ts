@@ -13,10 +13,13 @@ import { ContributionPeriod, PaymentMethod } from "@beabee/beabee-common";
 import { getRepository } from "@core/database";
 import ContactActivity, { ActivityType } from "@models/ContactActivity";
 import gocardless from "@core/lib/gocardless";
-import { PaymentCurrency, SubscriptionIntervalUnit } from "gocardless-nodejs";
+import {
+  PaymentCurrency,
+  SubscriptionIntervalUnit
+} from "gocardless-nodejs/types/Types";
 import ContactContribution from "@models/ContactContribution";
 import { stripe } from "@core/lib/stripe";
-import { add } from "date-fns";
+import { add, format } from "date-fns";
 
 // import { createGiftSchema, updateGiftAddressSchema } from "./schema.json";
 
@@ -43,36 +46,54 @@ app.post(
       throw new Error("Next amount set");
     }
 
-    const monthlyAmount = contact.contributionMonthlyAmount || 0;
+    const oldMonthlyAmount = (contact.contributionMonthlyAmount || 0) * 100;
+
+    const newAnnualAmount = oldMonthlyAmount * 12;
+    const newAnnualStartDate = add(new Date(), { years: 1 });
+
+    // Handle GoCardless proration
     if (contribution.method === PaymentMethod.GoCardlessDirectDebit) {
       await gocardless.payments.create({
-        amount: (monthlyAmount * 11 * 100).toString(),
-        currency: PaymentCurrency.GBP,
+        amount: (newAnnualAmount - oldMonthlyAmount).toString(),
+        currency: config.currencyCode.toUpperCase() as PaymentCurrency,
         description: "One-off payment to switch to annual contribution",
         links: {
           mandate: contribution.mandateId
         }
       });
-      await gocardless.subscriptions.cancel(contribution.subscriptionId);
+
+      // Cancel old subscription
+      const oldSubscriptionId = contribution.subscriptionId;
+
+      contribution.subscriptionId = null;
+      await getRepository(ContactContribution).save(contribution);
+
+      await gocardless.subscriptions.cancel(oldSubscriptionId);
+
+      // Create new one
       const newSub = await gocardless.subscriptions.create({
-        amount: (monthlyAmount * 12 * 100).toString(),
-        currency: PaymentCurrency.GBP,
+        amount: newAnnualAmount.toString(),
+        currency: config.currencyCode.toUpperCase() as PaymentCurrency,
         interval_unit: SubscriptionIntervalUnit.Monthly,
         name: "Membership",
         links: {
           mandate: contribution.mandateId
         },
-        start_date: add(new Date(), { years: 1 }).toISOString()
+        start_date: format(newAnnualStartDate, "yyyy-MM-dd")
       });
 
       contribution.subscriptionId = newSub.id!;
       await getRepository(ContactContribution).save(contribution);
+      // Stripe handles proration by itself
     } else if (contribution.method === PaymentMethod.StripeCard) {
       const sub = await stripe.subscriptions.retrieve(
         contribution.subscriptionId
       );
 
       await stripe.subscriptions.update(contribution.subscriptionId, {
+        billing_cycle_anchor: "now",
+        proration_date: sub.current_period_start,
+        proration_behavior: "always_invoice",
         items: [
           {
             id: sub.items.data[0].id,
@@ -82,16 +103,27 @@ app.post(
               recurring: {
                 interval: "year"
               },
-              unit_amount: monthlyAmount * 12 * 100
+              unit_amount: newAnnualAmount
             }
           }
-        ],
-        proration_date: sub.current_period_end,
-        proration_behavior: "always_invoice"
+        ]
       });
     } else {
       throw new Error("Unsupported payment method");
     }
+
+    await getRepository(ContactActivity).save({
+      type: ActivityType.ChangeContribution,
+      contactId: contact.id,
+      data: {
+        oldMonthlyAmount: oldMonthlyAmount / 100,
+        oldPeriod: ContributionPeriod.Monthly,
+        newMonthlyAmount: newAnnualAmount / 12 / 100,
+        newPeriod: ContributionPeriod.Annually,
+        startNow: true,
+        prorate: true
+      }
+    });
 
     await ContactsService.updateContact(contact, {
       contributionPeriod: ContributionPeriod.Annually
@@ -100,21 +132,8 @@ app.post(
     await ContactsService.extendContactRole(
       contact,
       "member",
-      add(new Date(), { years: 1, ...config.gracePeriod })
+      add(newAnnualStartDate, config.gracePeriod)
     );
-
-    await getRepository(ContactActivity).save({
-      type: ActivityType.ChangeContribution,
-      contactId: contact.id,
-      data: {
-        oldMonthlyAmount: monthlyAmount,
-        oldPeriod: ContributionPeriod.Monthly,
-        newMonthlyAmount: monthlyAmount,
-        newPeriod: ContributionPeriod.Annually,
-        startNow: true,
-        prorate: true
-      }
-    });
 
     res.redirect("/switch-to-annual/success");
   })
