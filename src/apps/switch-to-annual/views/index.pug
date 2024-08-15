@@ -10,16 +10,17 @@ block splash-contents
     p You're already on an annual contribution. Thanks for your support!
   else
     p Help The Bristol Cable hit its membership target with the click of a button!
+
     include /views/partials/flash.pug
 
     p.
-      You've already paid £#{user.contributionMonthlyAmount} this month, so we'll
-      charge you £#{user.contributionMonthlyAmount * 11} today, then
-      £#{user.contributionMonthlyAmount * 12} from next year. 
+      You're already contributing £#{oldMonthlyAmount} this month,
+      so we'll charge you £#{oneOffPayment} today, then
+      the full £#{newAnnualAmount} from next year.
 
     form(method='POST' style='margin-top: 24px;')
       +csrf
 
       .text-center
-        button.btn.btn-success.btn-lg Switch to £#{user.contributionMonthlyAmount * 12}/year
+        button.btn.btn-success.btn-lg Switch to £#{newAnnualAmount}/year
 

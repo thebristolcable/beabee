@@ -21,40 +21,54 @@ import ContactContribution from "@models/ContactContribution";
 import { stripe } from "@core/lib/stripe";
 import { add, format } from "date-fns";
 
-// import { createGiftSchema, updateGiftAddressSchema } from "./schema.json";
-
 const app = express();
+
+function getAmounts(contact: Contact) {
+  const oldMonthlyAmount = contact.contributionMonthlyAmount || 0;
+  const newAnnualAmount = Math.min(oldMonthlyAmount, 5) * 12;
+  const oneOffPayment = newAnnualAmount - oldMonthlyAmount;
+  return { oldMonthlyAmount, newAnnualAmount, oneOffPayment };
+}
 
 app.set("views", __dirname + "/views");
 
 app.get("/", isLoggedIn, (req, res) => {
-  res.render("index", { user: req.user });
+  const contact = req.user as Contact;
+  const oldMonthlyAmount = contact.contributionMonthlyAmount || 0;
+  const newAnnualAmount = Math.min(oldMonthlyAmount, 5) * 12;
+  const oneOffPayment = newAnnualAmount - oldMonthlyAmount;
+
+  res.render("index", { user: req.user, ...getAmounts(contact) });
 });
 
 app.post(
   "/",
   isLoggedIn,
-  wrapAsync(async (req, res) => {
+  wrapAsync(async (req, res, next) => {
     const contact = req.user as Contact;
     const contribution = await PaymentService.getContribution(contact);
 
+    if (contact.contributionPeriod === ContributionPeriod.Annually) {
+      return next("route");
+    }
+
     if (!contribution.mandateId || !contribution.subscriptionId) {
-      throw new Error("No mandate ID found");
+      throw new Error("No mandate or subscription ID found");
     }
 
     if (contribution.nextAmount) {
       throw new Error("Next amount set");
     }
 
-    const oldMonthlyAmount = (contact.contributionMonthlyAmount || 0) * 100;
+    const { oldMonthlyAmount, newAnnualAmount, oneOffPayment } =
+      getAmounts(contact);
 
-    const newAnnualAmount = oldMonthlyAmount * 12;
     const newAnnualStartDate = add(new Date(), { years: 1 });
 
     // Handle GoCardless proration
     if (contribution.method === PaymentMethod.GoCardlessDirectDebit) {
       await gocardless.payments.create({
-        amount: (newAnnualAmount - oldMonthlyAmount).toString(),
+        amount: oneOffPayment.toString(),
         currency: config.currencyCode.toUpperCase() as PaymentCurrency,
         description: "One-off payment to switch to annual contribution",
         links: {
