@@ -25,7 +25,7 @@ const app = express();
 
 function getAmounts(contact: Contact) {
   const oldMonthlyAmount = contact.contributionMonthlyAmount || 0;
-  const newAnnualAmount = Math.min(oldMonthlyAmount, 5) * 12;
+  const newAnnualAmount = Math.max(oldMonthlyAmount, 5) * 12;
   const oneOffPayment = newAnnualAmount - oldMonthlyAmount;
   return { oldMonthlyAmount, newAnnualAmount, oneOffPayment };
 }
@@ -33,12 +33,11 @@ function getAmounts(contact: Contact) {
 app.set("views", __dirname + "/views");
 
 app.get("/", isLoggedIn, (req, res) => {
-  const contact = req.user as Contact;
-  const oldMonthlyAmount = contact.contributionMonthlyAmount || 0;
-  const newAnnualAmount = Math.min(oldMonthlyAmount, 5) * 12;
-  const oneOffPayment = newAnnualAmount - oldMonthlyAmount;
+  res.render("index", { user: req.user, ...getAmounts(req.user!) });
+});
 
-  res.render("index", { user: req.user, ...getAmounts(contact) });
+app.get("/success", isLoggedIn, (req, res) => {
+  res.render("success", { user: req.user, ...getAmounts(req.user!) });
 });
 
 app.post(
@@ -68,7 +67,7 @@ app.post(
     // Handle GoCardless proration
     if (contribution.method === PaymentMethod.GoCardlessDirectDebit) {
       await gocardless.payments.create({
-        amount: oneOffPayment.toString(),
+        amount: (oneOffPayment * 100).toString(),
         currency: config.currencyCode.toUpperCase() as PaymentCurrency,
         description: "One-off payment to switch to annual contribution",
         links: {
@@ -86,7 +85,7 @@ app.post(
 
       // Create new one
       const newSub = await gocardless.subscriptions.create({
-        amount: newAnnualAmount.toString(),
+        amount: (newAnnualAmount * 100).toString(),
         currency: config.currencyCode.toUpperCase() as PaymentCurrency,
         interval_unit: SubscriptionIntervalUnit.Monthly,
         name: "Membership",
@@ -117,7 +116,7 @@ app.post(
               recurring: {
                 interval: "year"
               },
-              unit_amount: newAnnualAmount
+              unit_amount: newAnnualAmount * 100
             }
           }
         ]
@@ -130,9 +129,9 @@ app.post(
       type: ActivityType.ChangeContribution,
       contactId: contact.id,
       data: {
-        oldMonthlyAmount: oldMonthlyAmount / 100,
+        oldMonthlyAmount: oldMonthlyAmount,
         oldPeriod: ContributionPeriod.Monthly,
-        newMonthlyAmount: newAnnualAmount / 12 / 100,
+        newMonthlyAmount: newAnnualAmount / 12,
         newPeriod: ContributionPeriod.Annually,
         startNow: true,
         prorate: true

@@ -1,0 +1,10 @@
+extends /views/splash.pug
+
+block prepend title
+  - title = 'Switch to a £' + newAnnualAmount + '/year contribution'
+
+block splash-contents
+  h3 Switch to a £#{newAnnualAmount}/year contribution
+
+  div.alert.alert-success.
+    Thank you for your support! We're processing your new contribution now.
