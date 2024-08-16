@@ -1,0 +1,7 @@
+{
+  "title": "Switch to annual contribution",
+  "path": "switch-to-annual",
+  "permissions": ["loggedIn"],
+  "menu": "none",
+  "priority": 5
+}

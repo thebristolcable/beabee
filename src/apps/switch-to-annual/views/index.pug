@@ -1,0 +1,30 @@
+extends /views/splash.pug
+
+block prepend title
+  - title = 'Switch to a £' + newAnnualAmount + '/year contribution'
+
+block splash-contents
+  h3 Switch to a £#{newAnnualAmount}/year contribution
+
+  if user.contributionPeriod === 'annually'
+    p You're already on an annual contribution. Thanks for your support!
+  else
+    p.
+      Help The Bristol Cable hit its membership target with the click of a button!
+
+    p.
+      You're already contributing £#{oldMonthlyAmount} this month,
+      so we'll take £#{oneOffPayment} today, then
+      the full £#{newAnnualAmount} from next year.
+
+    include /views/partials/flash.pug
+
+    form(method='POST' style='margin-top: 24px;')
+      +csrf
+
+      .text-center
+        button.btn.btn-success.btn-lg Let's go
+
+        p.text-sm.help-block(style='margin-top: 8px'): small.
+          Your payment will be processed securely by our payment provider.
+
