@@ -140,6 +140,7 @@ app.post(
     });
 
     await ContactsService.updateContact(contact, {
+      contributionMonthlyAmount: newAnnualAmount / 12,
       contributionPeriod: ContributionPeriod.Annually
     });
 
@@ -149,7 +150,7 @@ app.post(
       add(newAnnualStartDate, config.gracePeriod)
     );
 
-    res.redirect("/switch-to-annual/success");
+    res.redirect("/switch-to-annual/success?amount=" + newAnnualAmount);
   })
 );
 
