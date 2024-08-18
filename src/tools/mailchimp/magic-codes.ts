@@ -23,7 +23,7 @@ db.connect().then(async () => {
 
   const loFlows = await db
     .getRepository(LoginOverrideFlow)
-    .save(contacts.map((contact) => ({ contactId: contact.id })));
+    .save(contacts.map((contact) => ({ contact })));
 
   const membersWithFields: [Contact, Record<string, string>][] = loFlows.map(
     (loFlow) => [
