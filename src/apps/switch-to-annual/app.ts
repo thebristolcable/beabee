@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request } from "express";
 
 import config from "@config";
 
@@ -23,9 +23,10 @@ import { add, format } from "date-fns";
 
 const app = express();
 
-function getAmounts(contact: Contact) {
-  const oldMonthlyAmount = contact.contributionMonthlyAmount || 0;
-  const newAnnualAmount = Math.max(oldMonthlyAmount, 5) * 12;
+function getAmounts(req: Request) {
+  const oldMonthlyAmount = req.user!.contributionMonthlyAmount || 0;
+  const newAnnualAmount =
+    Number(req.query.amount) || Math.max(oldMonthlyAmount, 5) * 12;
   const oneOffPayment = newAnnualAmount - oldMonthlyAmount;
   return { oldMonthlyAmount, newAnnualAmount, oneOffPayment };
 }
@@ -33,11 +34,11 @@ function getAmounts(contact: Contact) {
 app.set("views", __dirname + "/views");
 
 app.get("/", isLoggedIn, (req, res) => {
-  res.render("index", { user: req.user, ...getAmounts(req.user!) });
+  res.render("index", { user: req.user, ...getAmounts(req) });
 });
 
 app.get("/success", isLoggedIn, (req, res) => {
-  res.render("success", { user: req.user, ...getAmounts(req.user!) });
+  res.render("success", { user: req.user, ...getAmounts(req) });
 });
 
 app.post(
@@ -60,7 +61,7 @@ app.post(
     }
 
     const { oldMonthlyAmount, newAnnualAmount, oneOffPayment } =
-      getAmounts(contact);
+      getAmounts(req);
 
     const newAnnualStartDate = add(new Date(), { years: 1 });
 
