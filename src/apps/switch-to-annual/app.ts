@@ -88,7 +88,7 @@ app.post(
       const newSub = await gocardless.subscriptions.create({
         amount: (newAnnualAmount * 100).toString(),
         currency: config.currencyCode.toUpperCase() as PaymentCurrency,
-        interval_unit: SubscriptionIntervalUnit.Monthly,
+        interval_unit: SubscriptionIntervalUnit.Yearly,
         name: "Membership",
         links: {
           mandate: contribution.mandateId
